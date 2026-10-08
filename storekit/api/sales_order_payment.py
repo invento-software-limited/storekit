@@ -117,19 +117,18 @@ def initiate_quotation_payment(quotation: str) -> None:
 	gw_doc = frappe.get_doc("Payment Gateway", gateway_name)
 	settings = frappe.get_doc(gw_doc.gateway_settings, gw_doc.gateway_controller)
 
+	from frappe.integrations.utils import create_request_log
+	from frappe.utils import get_url
+
 	from storekit.storekit.doctype.lloyds_connect_settings.lloyds_connect_settings import (
 		get_lloyds_txndatetime,
 	)
-	from frappe.integrations.utils import create_request_log
-	from frappe.utils import get_url
 
 	# Resolve payer details
 	payer_name = quot.customer_name or quot.party_name or "Guest"
 	payer_email = ""
 	if quot.contact_person:
-		payer_email = frappe.db.get_value(
-			"Contact Email", {"parent": quot.contact_person}, "email_id"
-		) or ""
+		payer_email = frappe.db.get_value("Contact Email", {"parent": quot.contact_person}, "email_id") or ""
 	if not payer_email and frappe.session.user != "Guest":
 		payer_email = frappe.session.user
 

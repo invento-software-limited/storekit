@@ -1,16 +1,15 @@
 import base64
-from configparser import NoOptionError
 import hashlib
 import hmac
 import json
+from configparser import NoOptionError
 from urllib.parse import urlencode
-
-from werkzeug.wrappers import Response
 
 import frappe
 import pytz
 from frappe.model.document import Document
 from frappe.utils import get_url, now_datetime
+from werkzeug.wrappers import Response
 
 from storekit.storekit.payments.utils import create_payment_gateway
 
@@ -209,7 +208,9 @@ def _complete_payment_logic(token: str, status: str, request_data: dict) -> None
 				try:
 					frappe.set_user("Administrator")
 					# Lock the payment request as well
-					pr_status = frappe.db.get_value("Payment Request", reference_docname, "status", for_update=True)
+					pr_status = frappe.db.get_value(
+						"Payment Request", reference_docname, "status", for_update=True
+					)
 					if pr_status != "Paid":
 						pr = frappe.get_doc("Payment Request", reference_docname)
 						pr.set_as_paid()
@@ -259,11 +260,9 @@ def _complete_payment_logic(token: str, status: str, request_data: dict) -> None
 		except Exception:
 			frappe.log_error(frappe.get_traceback())
 
-
 	# Update status to indicate processing is finished
 	frappe.db.set_value("Integration Request", token, "status", status)
 	frappe.db.commit()
-
 
 
 def _create_so_and_payment_from_quotation(quotation_name: str, payment_data: dict) -> None:
@@ -272,10 +271,10 @@ def _create_so_and_payment_from_quotation(quotation_name: str, payment_data: dic
 	Creates and submits a Sales Order from the submitted Quotation, creates a
 	Payment Entry (and Sales Invoice), then clears cart cookies.
 	"""
-	from erpnext.selling.doctype.quotation.quotation import make_sales_order as _make_so
 	from erpnext.accounts.doctype.payment_entry.payment_entry import get_payment_entry
+	from erpnext.selling.doctype.quotation.quotation import make_sales_order as _make_so
 	from erpnext.selling.doctype.sales_order.sales_order import make_sales_invoice
-	from frappe.utils import nowdate, flt
+	from frappe.utils import flt, nowdate
 
 	quot = frappe.get_doc("Quotation", quotation_name)
 	if quot.docstatus != 1:
@@ -295,38 +294,39 @@ def _create_so_and_payment_from_quotation(quotation_name: str, payment_data: dic
 	pe = get_payment_entry("Sales Order", so_doc.name)
 
 	# Fetch mode of payment from Payment Gateway Account
-	token = payment_data.get("merchantTransactionId")
 	mode_of_payment = None
 	payment_account = None
 	try:
 		# Get the default Payment Gateway Account to find the mode of payment
-		gateway_account = frappe.db.get_value("Payment Gateway Account", {"is_default": 1}, ["mode_of_payment", "payment_account"], as_dict=True)
+		gateway_account = frappe.db.get_value(
+			"Payment Gateway Account", {"is_default": 1}, ["mode_of_payment", "payment_account"], as_dict=True
+		)
 		if gateway_account:
 			mode_of_payment = gateway_account.mode_of_payment
 			payment_account = gateway_account.payment_account
 	except Exception:
 		pass
 
-	pe.update({
-		"reference_no": (
-			payment_data.get("merchantTransactionId")
-			or payment_data.get("oid")
-			or payment_data.get("order_id")
-			or quotation_name
-		),
-		"reference_date": nowdate(),
-		"remarks": f"Card payment for {quotation_name} → {so_doc.name}",
-		"mode_of_payment": mode_of_payment,
-		"paid_to": payment_account,
-	})
+	pe.update(
+		{
+			"reference_no": (
+				payment_data.get("merchantTransactionId")
+				or payment_data.get("oid")
+				or payment_data.get("order_id")
+				or quotation_name
+			),
+			"reference_date": nowdate(),
+			"remarks": f"Card payment for {quotation_name} → {so_doc.name}",
+			"mode_of_payment": mode_of_payment,
+			"paid_to": payment_account,
+		}
+	)
 	pe.flags.ignore_permissions = True
 	pe.insert(ignore_permissions=True)
 	pe.submit()
 
 	# ── Create Sales Invoice ─────────────────────────────────────────────────
-	has_invoice = frappe.db.exists(
-		"Sales Invoice Item", {"sales_order": so_doc.name, "docstatus": 1}
-	)
+	has_invoice = frappe.db.exists("Sales Invoice Item", {"sales_order": so_doc.name, "docstatus": 1})
 	if not has_invoice:
 		si = make_sales_invoice(so_doc.name, ignore_permissions=True)
 		si.allocate_advances_automatically = True
@@ -466,8 +466,7 @@ def _handle_response():
 		frappe.log_error(
 			message=(
 				f"Token: {token}\n"
-				f"Payload: {frappe.as_json(dict(response), indent=2)}\n\n"
-				+ frappe.get_traceback()
+				f"Payload: {frappe.as_json(dict(response), indent=2)}\n\n" + frappe.get_traceback()
 			),
 			title="Lloyds Connect: Response Handling Failed",
 		)
@@ -504,8 +503,7 @@ def transaction_notification():
 		frappe.log_error(
 			message=(
 				f"Token: {token}\n"
-				f"Payload: {frappe.as_json(dict(payload), indent=2)}\n\n"
-				+ frappe.get_traceback()
+				f"Payload: {frappe.as_json(dict(payload), indent=2)}\n\n" + frappe.get_traceback()
 			),
 			title="Lloyds Connect: Notification Handling Failed",
 		)

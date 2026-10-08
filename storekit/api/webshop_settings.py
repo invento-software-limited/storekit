@@ -30,6 +30,7 @@ def reset_colors():
 def clear_all_cache():
 	frappe.clear_cache()
 	from frappe.website.utils import clear_cache
+
 	clear_cache()
 
 
@@ -47,4 +48,5 @@ def reset_to_applied_theme():
 		frappe.throw("No theme is currently applied. Please apply a theme from the Webshop Theme list first.")
 
 	from storekit.storekit.doctype.webshop_theme.webshop_theme import apply_theme
+
 	return apply_theme(applied[0])

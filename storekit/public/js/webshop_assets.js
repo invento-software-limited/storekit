@@ -25,15 +25,24 @@
 					return;
 				}
 			}
-		} catch (e) {}
+		} catch (e) {
+			// sessionStorage unavailable or corrupt: fall through to a fresh fetch
+		}
 
 		fetch("/api/method/storekit.api.webshop_settings.get_webshop_assets")
-			.then(function (r) { return r.json(); })
+			.then(function (r) {
+				return r.json();
+			})
 			.then(function (json) {
 				var assets = json.message || {};
 				try {
-					sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data: assets }));
-				} catch (e) {}
+					sessionStorage.setItem(
+						CACHE_KEY,
+						JSON.stringify({ ts: Date.now(), data: assets })
+					);
+				} catch (e) {
+					// sessionStorage full or blocked: caching is optional
+				}
 				applyAssets(assets);
 			})
 			.catch(function () {});

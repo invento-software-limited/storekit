@@ -1,4 +1,5 @@
 import colorsys
+
 import frappe
 
 no_cache = 1
@@ -18,6 +19,7 @@ COLOR_DEFAULTS = {
 	"btn_hover_color": "#FFFFFF",
 	"btn_hover_bg_color": "#D5C600",
 }
+
 
 def _anim_color(btn_bg):
 	"""
@@ -60,6 +62,4 @@ def get_context(context):
 		context[field] = settings.get(field) or default
 	primary = settings.get("primary_color") or COLOR_DEFAULTS["primary_color"]
 	context["primary_color_faint_deep"] = _faint_deep(primary)
-	context["btn_anim_color"] = _anim_color(
-		settings.get("btn_bg_color") or COLOR_DEFAULTS["btn_bg_color"]
-	)
+	context["btn_anim_color"] = _anim_color(settings.get("btn_bg_color") or COLOR_DEFAULTS["btn_bg_color"])

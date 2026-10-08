@@ -6,7 +6,14 @@ no controller hooks (Builder exports, notifications) fire mid-migration.
 
 import frappe
 
-from storekit.setup.legacy_names import APP, LEGACY_APPS, LEGACY_MODULES, MODULE, has_legacy_reference, rewrite
+from storekit.setup.legacy_names import (
+	APP,
+	LEGACY_APPS,
+	LEGACY_MODULES,
+	MODULE,
+	has_legacy_reference,
+	rewrite,
+)
 
 # DocTypes whose stored code/markup may call legacy method paths or asset URLs.
 CONTENT_DOCTYPES = (
@@ -46,7 +53,9 @@ def execute():
 
 def reassign_modules():
 	"""Point every record with a `module` link at the StoreKit module."""
-	for doctype in frappe.get_all("DocField", filters={"fieldname": "module", "options": "Module Def"}, pluck="parent"):
+	for doctype in frappe.get_all(
+		"DocField", filters={"fieldname": "module", "options": "Module Def"}, pluck="parent"
+	):
 		if is_real_table(doctype):
 			frappe.db.sql(
 				f"update `tab{doctype}` set module = %s where module in %s",
@@ -123,7 +132,9 @@ def regenerate_builder_assets():
 
 
 def text_fields(doctype):
-	return [field.fieldname for field in frappe.get_meta(doctype).fields if field.fieldtype in TEXT_FIELDTYPES]
+	return [
+		field.fieldname for field in frappe.get_meta(doctype).fields if field.fieldtype in TEXT_FIELDTYPES
+	]
 
 
 def is_real_table(doctype):

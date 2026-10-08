@@ -14,7 +14,15 @@ from storekit.api.overview_sections import web_order_filters
 
 MAX_PERIOD_DAYS = 731
 MAX_PAGE_LENGTH = 50
-ORDER_FIELDS = ["name", "transaction_date", "base_net_total", "status", "per_delivered", "per_billed", "docstatus"]
+ORDER_FIELDS = [
+	"name",
+	"transaction_date",
+	"base_net_total",
+	"status",
+	"per_delivered",
+	"per_billed",
+	"docstatus",
+]
 
 
 @frappe.whitelist()
@@ -133,7 +141,9 @@ class SalesSeries:
 		self.revenue = flt(sum(self.revenue_series), 2)
 		self.count = len(submitted)
 		self.aov = flt(self.revenue / self.count, 2) if self.count else 0
-		self.aov_series = [flt(r / c, 2) if c else 0 for r, c in zip(self.revenue_series, self.count_series)]
+		self.aov_series = [
+			flt(r / c, 2) if c else 0 for r, c in zip(self.revenue_series, self.count_series, strict=True)
+		]
 
 
 def align(series, length):
@@ -160,7 +170,9 @@ class Buckets:
 	def label(self, i):
 		if self.step == "month":
 			month = self.from_date.month - 1 + i
-			start = self.from_date.replace(year=self.from_date.year + month // 12, month=month % 12 + 1, day=1)
+			start = self.from_date.replace(
+				year=self.from_date.year + month // 12, month=month % 12 + 1, day=1
+			)
 			return start.strftime("%b %y")
 		start = add_days(self.from_date, i * (7 if self.step == "week" else 1))
 		return getdate(start).strftime("%d %b")

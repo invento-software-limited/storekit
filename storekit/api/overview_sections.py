@@ -51,7 +51,7 @@ def _add(bucket, value):
 
 # ---------------- awaiting dispatch (as-at today) ----------------
 
-DISPATCH_AGES = [("0–2 days", 0, 2), ("3–7 days", 3, 7), ("8+ days", 8, None)]
+DISPATCH_AGES = [("0-2 days", 0, 2), ("3-7 days", 3, 7), ("8+ days", 8, None)]
 
 
 def awaiting_dispatch(f):
@@ -82,7 +82,15 @@ def dispatch_rows(filters, f):
 	rows = frappe.get_list(
 		"Sales Order",
 		filters=filters,
-		fields=["name", "customer", "customer_name", "transaction_date", "base_net_total", "total_qty", "per_delivered"],
+		fields=[
+			"name",
+			"customer",
+			"customer_name",
+			"transaction_date",
+			"base_net_total",
+			"total_qty",
+			"per_delivered",
+		],
 		order_by="transaction_date asc, creation asc",
 		limit_start=f.start,
 		limit_page_length=f.page_length,
@@ -95,7 +103,7 @@ def dispatch_rows(filters, f):
 
 # ---------------- carts (draft Shopping Cart quotations with items) ----------------
 
-CART_IDLE = [("Under 24h", 0, 24), ("1–7 days", 24, 168), ("7+ days", 168, None)]
+CART_IDLE = [("Under 24h", 0, 24), ("1-7 days", 24, 168), ("7+ days", 168, None)]
 
 
 def cart_rows(f, created_between=None):
@@ -107,7 +115,15 @@ def cart_rows(f, created_between=None):
 	return frappe.get_list(
 		"Quotation",
 		filters=filters,
-		fields=["name", "party_name", "customer_name", "contact_email", "base_net_total", "total_qty", "modified"],
+		fields=[
+			"name",
+			"party_name",
+			"customer_name",
+			"contact_email",
+			"base_net_total",
+			"total_qty",
+			"modified",
+		],
 		order_by="base_net_total desc",
 		limit_page_length=0,
 	)
@@ -190,12 +206,28 @@ def products(f):
 	lines = frappe.get_list(
 		"Sales Order",
 		filters=web_order_filters(f, docstatus=1, transaction_date=["between", [f.from_date, f.to_date]]),
-		fields=["items.item_code", "items.item_name", "items.item_group", "items.base_net_amount", "items.stock_qty", "items.stock_uom"],
+		fields=[
+			"items.item_code",
+			"items.item_name",
+			"items.item_group",
+			"items.base_net_amount",
+			"items.stock_qty",
+			"items.stock_uom",
+		],
 		limit_page_length=0,
 	)
 	items, groups = {}, {}
 	for line in lines:
-		item = items.setdefault(line.item_code, {"item_code": line.item_code, "item_name": line.item_name, "uom": line.stock_uom, "qty": 0.0, "revenue": 0.0})
+		item = items.setdefault(
+			line.item_code,
+			{
+				"item_code": line.item_code,
+				"item_name": line.item_name,
+				"uom": line.stock_uom,
+				"qty": 0.0,
+				"revenue": 0.0,
+			},
+		)
 		item["qty"] += flt(line.stock_qty)
 		item["revenue"] += flt(line.base_net_amount)
 		group = line.item_group or "Uncategorised"
@@ -205,7 +237,9 @@ def products(f):
 
 
 def top_groups(groups):
-	ranked = sorted(((name, value) for name, value in groups.items() if value > 0), key=lambda g: g[1], reverse=True)
+	ranked = sorted(
+		((name, value) for name, value in groups.items() if value > 0), key=lambda g: g[1], reverse=True
+	)
 	parts = [{"label": name, "value": flt(value, 2)} for name, value in ranked[:TOP_GROUPS]]
 	other = sum(value for _, value in ranked[TOP_GROUPS:])
 	if other:
@@ -231,7 +265,13 @@ def reviews(f):
 		row.stars = min(max(round(flt(row.rating) * 5), 1), 5)
 		stars[row.stars - 1] += 1
 	average = flt(sum(r.stars for r in rows) / len(rows), 1) if rows else 0
-	return {"allowed": True, "count": len(rows), "average": average, "stars": stars, "rows": rows[:WORKLIST_LIMIT]}
+	return {
+		"allowed": True,
+		"count": len(rows),
+		"average": average,
+		"stars": stars,
+		"rows": rows[:WORKLIST_LIMIT],
+	}
 
 
 # ---------------- catalog health (as-at) ----------------
@@ -263,5 +303,10 @@ def priced_items():
 	if not price_list or not can_read("Item Price"):
 		return None
 	return set(
-		frappe.get_list("Item Price", filters={"price_list": price_list, "selling": 1}, pluck="item_code", limit_page_length=0)
+		frappe.get_list(
+			"Item Price",
+			filters={"price_list": price_list, "selling": 1},
+			pluck="item_code",
+			limit_page_length=0,
+		)
 	)

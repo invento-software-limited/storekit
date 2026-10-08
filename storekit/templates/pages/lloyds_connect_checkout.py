@@ -77,4 +77,3 @@ def get_context(context):
 		)
 		frappe.local.flags.redirect_location = frappe.local.response.location
 		raise frappe.Redirect
-

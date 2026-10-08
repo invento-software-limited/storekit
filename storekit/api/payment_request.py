@@ -1,12 +1,6 @@
 import json
 
 import frappe
-from frappe import _
-from frappe.model.document import Document
-from frappe.query_builder.functions import Sum
-from frappe.utils import flt, nowdate
-from frappe.utils.background_jobs import enqueue
-
 from erpnext import get_company_currency
 from erpnext.accounts.doctype.accounting_dimension.accounting_dimension import (
 	get_accounting_dimensions,
@@ -18,6 +12,11 @@ from erpnext.accounts.doctype.subscription_plan.subscription_plan import get_pla
 from erpnext.accounts.party import get_party_account, get_party_bank_account
 from erpnext.accounts.utils import get_account_currency, get_currency_precision
 from erpnext.utilities import payment_app_import_guard
+from frappe import _
+from frappe.model.document import Document
+from frappe.query_builder.functions import Sum
+from frappe.utils import flt, nowdate
+from frappe.utils.background_jobs import enqueue
 
 ALLOWED_DOCTYPES_FOR_PAYMENT_REQUEST = [
 	"Sales Order",
@@ -43,11 +42,10 @@ class PaymentRequest(Document):
 	from typing import TYPE_CHECKING
 
 	if TYPE_CHECKING:
-		from frappe.types import DF
-
 		from erpnext.accounts.doctype.subscription_plan_detail.subscription_plan_detail import (
 			SubscriptionPlanDetail,
 		)
+		from frappe.types import DF
 
 		account: DF.ReadOnly | None
 		amended_from: DF.Link | None
@@ -725,7 +723,7 @@ def get_amount(ref_doc, payment_account=None):
 	return flt(grand_total, get_currency_precision()) if grand_total > 0 else 0
 
 
-def get_irequest_status(payment_requests: None | list = None) -> list:
+def get_irequest_status(payment_requests: list | None = None) -> list:
 	IR = frappe.qb.DocType("Integration Request")
 	res = []
 	if payment_requests:

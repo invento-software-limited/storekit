@@ -24,7 +24,10 @@ jinja = {"methods": ["storekit.order_emails.jinja_methods.order_email_context"]}
 # Installation
 # ------------
 
-after_install = "storekit.setup.legacy_migration.execute"
+after_install = [
+	"storekit.setup.legacy_migration.execute",
+	"storekit.order_emails.setup.after_migrate",
+]
 after_migrate = ["storekit.order_emails.setup.after_migrate"]
 
 # DocType Class

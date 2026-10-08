@@ -6,6 +6,7 @@ app_publisher = "Invento Software Limited"
 app_description = "Generic Frappe ecommerce storefront: catalog, cart, checkout, orders and Builder pages"
 app_email = "hello@invento.com.bd"
 app_license = "mit"
+app_logo_url = "/assets/storekit/images/storekit-logo.svg"
 
 required_apps = ["erpnext", "builder"]
 

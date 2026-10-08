@@ -1,13 +1,15 @@
 import frappe
-from frappe.utils import flt, cint
-from erpnext.utilities.product import get_price
 from erpnext.stock.utils import get_stock_balance
+from erpnext.utilities.product import get_price
+from frappe.utils import cint, flt
+
 from storekit.webshop_functions.cart import get_party
 
 
 def _can_see_price():
 	"""Prices are public: guests and logged-in users both see them."""
 	return True
+
 
 @frappe.whitelist(allow_guest=True)
 def get_filtered_items(filters=None):
@@ -18,7 +20,7 @@ def get_filtered_items(filters=None):
 	"""
 	if isinstance(filters, str):
 		filters = frappe.parse_json(filters)
-	
+
 	if not filters:
 		filters = {}
 
@@ -27,12 +29,8 @@ def get_filtered_items(filters=None):
 	item_group = filters.get("category_name")
 
 	pq = ProductQuery()
-	return pq.query(
-		filters=filters, 
-		search_term=search_term, 
-		start=start, 
-		item_group=item_group
-	)
+	return pq.query(filters=filters, search_term=search_term, start=start, item_group=item_group)
+
 
 class ProductQuery:
 	"""Query items directly from the Item DocType for the webshop."""
@@ -52,7 +50,7 @@ class ProductQuery:
 			"weight_per_unit",
 			"brand",
 			"has_variants",
-			"custom_on_sale"
+			"custom_on_sale",
 		]
 
 	def _get_settings(self):
@@ -69,13 +67,16 @@ class ProductQuery:
 			if party_doc and party_doc.doctype == "Customer":
 				party = party_doc
 				customer_group = party_doc.customer_group
-		
-		return frappe._dict({
-			"company": frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company"),
-			"price_list": price_list or "Standard Selling",
-			"default_customer_group": customer_group or "All Customer Groups",
-			"party": party
-		})
+
+		return frappe._dict(
+			{
+				"company": frappe.defaults.get_user_default("Company")
+				or frappe.db.get_single_value("Global Defaults", "default_company"),
+				"price_list": price_list or "Standard Selling",
+				"default_customer_group": customer_group or "All Customer Groups",
+				"party": party,
+			}
+		)
 
 	def query(self, filters=None, search_term=None, start=0, item_group=None):
 		"""
@@ -87,21 +88,17 @@ class ProductQuery:
 			item_group (str): Item Group filter
 		"""
 		start = cint(start)
-		if not filters: filters = {}
+		if not filters:
+			filters = {}
 
 		start = cint(start)
-		if not filters: filters = {}
+		if not filters:
+			filters = {}
 
 		db_filters = self._build_filters(filters, item_group)
 		or_filters = self._build_or_filters(search_term)
 
-
-		
-		post_filter_needed = (
-			filters.get("price_start") or 
-			filters.get("price_end") or 
-			filters.get("stock")
-		)
+		post_filter_needed = filters.get("price_start") or filters.get("price_end") or filters.get("stock")
 
 		limit = cint(filters.get("limit") or filters.get("page_length") or self.page_length)
 
@@ -110,22 +107,21 @@ class ProductQuery:
 			fields=self.fields,
 			filters=db_filters,
 			or_filters=or_filters,
-			start=start if not post_filter_needed else 0, # Cannot use DB skip if we filter after
+			start=start if not post_filter_needed else 0,  # Cannot use DB skip if we filter after
 			page_length=1000 if post_filter_needed else limit,
 			order_by="creation desc",
-			ignore_permissions=True
+			ignore_permissions=True,
 		)
-		
-		
+
 		processed_items = []
 		for item in items:
 			detailed_item = self.get_item_details(item)
-			
+
 			if not self.check_filters(detailed_item, filters):
 				continue
-				
+
 			processed_items.append(detailed_item)
-			
+
 			if not post_filter_needed and len(processed_items) >= limit:
 				break
 
@@ -134,13 +130,14 @@ class ProductQuery:
 			paged_items = processed_items[start : start + limit]
 		else:
 			# If no post-filtering, we can get the total count from DB
-			total_count = len(frappe.get_all("Item", filters=db_filters, or_filters=or_filters, pluck="name", ignore_permissions=True))
+			total_count = len(
+				frappe.get_all(
+					"Item", filters=db_filters, or_filters=or_filters, pluck="name", ignore_permissions=True
+				)
+			)
 			paged_items = processed_items
 
-		return {
-			"items": paged_items,
-			"items_count": total_count
-		}
+		return {"items": paged_items, "items_count": total_count}
 
 	def check_filters(self, item, filters):
 		"""
@@ -150,7 +147,7 @@ class ProductQuery:
 		# Price Filter
 		price_start = flt(filters.get("price_start"))
 		price_end = flt(filters.get("price_end"))
-		
+
 		if price_end > 0:
 			rate = item.get("price_list_rate") or 0
 			if not (price_start <= rate <= price_end):
@@ -161,32 +158,36 @@ class ProductQuery:
 		if stock_filters:
 			match = False
 			is_in_stock = item.get("in_stock")
-			
+
 			if "in_stock" in stock_filters and is_in_stock:
 				match = True
-			
+
 			if "on_backorder" in stock_filters:
 				if not is_in_stock:
 					match = True
-					
+
 			if "on_sale" in stock_filters:
 				if item.get("custom_on_sale") or flt(item.get("discount_percent")) > 0:
 					match = True
-					
+
 			if not match:
 				return False
 
 		return True
 
 	def _build_filters(self, filters_dict, item_group):
-		filters = [
-			["custom_publish_on_website", "=", 1],
-			["disabled", "=", 0],
-			["is_sales_item", "=", 1]
-		]
+		filters = [["custom_publish_on_website", "=", 1], ["disabled", "=", 0], ["is_sales_item", "=", 1]]
 
 		if item_group:
-			child_groups = frappe.get_all("Item Group", filters={"lft": [">=", frappe.db.get_value("Item Group", item_group, "lft")], "rgt": ["<=", frappe.db.get_value("Item Group", item_group, "rgt")]}, pluck="name", ignore_permissions=True)
+			child_groups = frappe.get_all(
+				"Item Group",
+				filters={
+					"lft": [">=", frappe.db.get_value("Item Group", item_group, "lft")],
+					"rgt": ["<=", frappe.db.get_value("Item Group", item_group, "rgt")],
+				},
+				pluck="name",
+				ignore_permissions=True,
+			)
 			if child_groups:
 				filters.append(["item_group", "in", child_groups])
 			else:
@@ -197,19 +198,23 @@ class ProductQuery:
 			if weights:
 				conditions = []
 				for w in weights:
-					parts = w.split(' ')
+					parts = w.split(" ")
 					if len(parts) >= 2:
 						val = flt(parts[0])
 						uom = " ".join(parts[1:])
-						conditions.append(f"(weight_per_unit = {val} AND weight_uom = {frappe.db.escape(uom)})")
+						conditions.append(
+							f"(weight_per_unit = {val} AND weight_uom = {frappe.db.escape(uom)})"
+						)
 					elif len(parts) == 1:
 						val = flt(parts[0])
 						conditions.append(f"(weight_per_unit = {val})")
 
 				if conditions:
 					where_clause = " OR ".join(conditions)
-					matching_items = frappe.db.sql(f"SELECT name FROM `tabItem` WHERE {where_clause}", pluck=True)
-					
+					matching_items = frappe.db.sql(
+						f"SELECT name FROM `tabItem` WHERE {where_clause}", pluck=True
+					)
+
 					if matching_items:
 						filters.append(["name", "in", matching_items])
 					else:
@@ -225,14 +230,18 @@ class ProductQuery:
 		return filters
 
 	def _build_group_count_filters(self, item_group):
-		filters = [
-		["disabled", "=", 0],
-		["custom_publish_on_website", "=", 1],
-		["is_sales_item", "=", 1]
-	]
+		filters = [["disabled", "=", 0], ["custom_publish_on_website", "=", 1], ["is_sales_item", "=", 1]]
 
 		if item_group:
-			child_groups = frappe.get_all("Item Group", filters={"lft": [">=", frappe.db.get_value("Item Group", item_group, "lft")], "rgt": ["<=", frappe.db.get_value("Item Group", item_group, "rgt")]}, pluck="name", ignore_permissions=True)
+			child_groups = frappe.get_all(
+				"Item Group",
+				filters={
+					"lft": [">=", frappe.db.get_value("Item Group", item_group, "lft")],
+					"rgt": ["<=", frappe.db.get_value("Item Group", item_group, "rgt")],
+				},
+				pluck="name",
+				ignore_permissions=True,
+			)
 			if child_groups:
 				filters.append(["item_group", "in", child_groups])
 			else:
@@ -246,7 +255,7 @@ class ProductQuery:
 			or_filters = [
 				["item_name", "like", f"%{search_term}%"],
 				["item_code", "like", f"%{search_term}%"],
-				["description", "like", f"%{search_term}%"]
+				["description", "like", f"%{search_term}%"],
 			]
 		return or_filters
 
@@ -257,9 +266,11 @@ class ProductQuery:
 
 		if _can_see_price():
 			if item.has_variants:
-				variants = frappe.db.get_all("Item", filters={"variant_of": item.item_code, "disabled": 0}, pluck="name")
+				variants = frappe.db.get_all(
+					"Item", filters={"variant_of": item.item_code, "disabled": 0}, pluck="name"
+				)
 				if variants:
-					min_price = float('inf')
+					min_price = float("inf")
 					cheapest_variant_details = None
 
 					for variant in variants:
@@ -269,7 +280,7 @@ class ProductQuery:
 							customer_group=self.settings.default_customer_group,
 							company=self.settings.company,
 							party=self.settings.party,
-							qty=1
+							qty=1,
 						)
 						if price_details:
 							rate = flt(price_details.get("price_list_rate"))
@@ -279,7 +290,9 @@ class ProductQuery:
 
 					if cheapest_variant_details:
 						item.price_list_rate = min_price
-						formatted = frappe.format_value(min_price, dict(fieldtype="Currency"), doc=cheapest_variant_details)
+						formatted = frappe.format_value(
+							min_price, dict(fieldtype="Currency"), doc=cheapest_variant_details
+						)
 						item.formatted_price = f"Starts at {formatted} per {item.stock_uom}"
 			else:
 				price_details = get_price(
@@ -288,7 +301,7 @@ class ProductQuery:
 					customer_group=self.settings.default_customer_group,
 					company=self.settings.company,
 					party=self.settings.party,
-					qty=1
+					qty=1,
 				)
 
 				if price_details:
@@ -298,12 +311,13 @@ class ProductQuery:
 					rate = price_details.get("rate") or price_details.get("price_list_rate")
 					item.formatted_price = f"{frappe.format_value(rate, dict(fieldtype='Currency'), doc=price_details)} per {item.stock_uom}"
 
-
 		is_stock_item = frappe.db.get_value("Item", item.item_code, "is_stock_item")
-		
+
 		if is_stock_item:
 			# Check stock in all warehouses (permission safe for Guest)
-			actual_qty = frappe.db.sql("""select sum(actual_qty) from `tabBin` where item_code = %s""", item.item_code)
+			actual_qty = frappe.db.sql(
+				"""select sum(actual_qty) from `tabBin` where item_code = %s""", item.item_code
+			)
 			actual_qty = actual_qty[0][0] if actual_qty and actual_qty[0][0] else 0
 			item.in_stock = actual_qty > 0
 		else:
@@ -313,4 +327,3 @@ class ProductQuery:
 		item.route = item.get("custom_route") or (f"/shop/{item.item_code}" if item.get("item_code") else "#")
 
 		return item
-

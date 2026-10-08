@@ -3,26 +3,28 @@
 # sets the image fields on every default theme record.
 
 import os
+
 import frappe
 
 FONT = "system-ui,-apple-system,'Segoe UI',sans-serif"
 
 THEMES = [
-	dict(slug="black",   name="Midnight Black",  p="#111827", d="#030712", l="#374151", f="#F9FAFB"),
-	dict(slug="slate",   name="Charcoal Slate",  p="#334155", d="#1E293B", l="#475569", f="#F8FAFC"),
-	dict(slug="blue",    name="Royal Blue",       p="#2563EB", d="#1D4ED8", l="#3B82F6", f="#EFF6FF"),
-	dict(slug="sky",     name="Sky Blue",         p="#0284C7", d="#0369A1", l="#0EA5E9", f="#F0F9FF"),
-	dict(slug="teal",    name="Ocean Teal",       p="#0D9488", d="#0F766E", l="#14B8A6", f="#F0FDFA"),
-	dict(slug="emerald", name="Emerald",          p="#059669", d="#047857", l="#10B981", f="#ECFDF5"),
-	dict(slug="green",   name="Forest Green",     p="#15803D", d="#166534", l="#16A34A", f="#F0FDF4"),
-	dict(slug="red",     name="Crimson Red",      p="#DC2626", d="#B91C1C", l="#EF4444", f="#FEF2F2"),
-	dict(slug="orange",  name="Sunset Orange",    p="#EA580C", d="#C2410C", l="#F97316", f="#FFF7ED"),
-	dict(slug="amber",   name="Amber Honey",      p="#D97706", d="#B45309", l="#F59E0B", f="#FFFBEB"),
-	dict(slug="pink",    name="Fuchsia Pink",     p="#DB2777", d="#BE185D", l="#EC4899", f="#FDF2F8"),
-	dict(slug="violet",  name="Deep Violet",      p="#7C3AED", d="#6D28D9", l="#8B5CF6", f="#F5F3FF"),
+	dict(slug="black", name="Midnight Black", p="#111827", d="#030712", l="#374151", f="#F9FAFB"),
+	dict(slug="slate", name="Charcoal Slate", p="#334155", d="#1E293B", l="#475569", f="#F8FAFC"),
+	dict(slug="blue", name="Royal Blue", p="#2563EB", d="#1D4ED8", l="#3B82F6", f="#EFF6FF"),
+	dict(slug="sky", name="Sky Blue", p="#0284C7", d="#0369A1", l="#0EA5E9", f="#F0F9FF"),
+	dict(slug="teal", name="Ocean Teal", p="#0D9488", d="#0F766E", l="#14B8A6", f="#F0FDFA"),
+	dict(slug="emerald", name="Emerald", p="#059669", d="#047857", l="#10B981", f="#ECFDF5"),
+	dict(slug="green", name="Forest Green", p="#15803D", d="#166534", l="#16A34A", f="#F0FDF4"),
+	dict(slug="red", name="Crimson Red", p="#DC2626", d="#B91C1C", l="#EF4444", f="#FEF2F2"),
+	dict(slug="orange", name="Sunset Orange", p="#EA580C", d="#C2410C", l="#F97316", f="#FFF7ED"),
+	dict(slug="amber", name="Amber Honey", p="#D97706", d="#B45309", l="#F59E0B", f="#FFFBEB"),
+	dict(slug="pink", name="Fuchsia Pink", p="#DB2777", d="#BE185D", l="#EC4899", f="#FDF2F8"),
+	dict(slug="violet", name="Deep Violet", p="#7C3AED", d="#6D28D9", l="#8B5CF6", f="#F5F3FF"),
 ]
 
 # ── Logo SVGs (unique icon per theme) ─────────────────────────────────────────
+
 
 def _logo_black(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
@@ -33,6 +35,7 @@ def _logo_black(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#6B7280" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_slate(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="{p}"/><stop offset="100%" stop-color="{d}"/></linearGradient></defs>
@@ -41,6 +44,7 @@ def _logo_slate(p, d):
   <text x="48" y="38" font-family="{FONT}" font-size="21" font-weight="800" fill="#1E293B" letter-spacing="0.5">INVENTO</text>
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#64748B" letter-spacing="4">WEBSHOP</text>
 </svg>"""
+
 
 def _logo_blue(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
@@ -51,6 +55,7 @@ def _logo_blue(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#3B82F6" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_sky(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="{p}"/><stop offset="100%" stop-color="{d}"/></linearGradient></defs>
@@ -60,6 +65,7 @@ def _logo_sky(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#0284C7" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_teal(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="{p}"/><stop offset="100%" stop-color="{d}"/></linearGradient></defs>
@@ -68,6 +74,7 @@ def _logo_teal(p, d):
   <text x="48" y="38" font-family="{FONT}" font-size="21" font-weight="800" fill="#0D2825" letter-spacing="0.5">INVENTO</text>
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#0D9488" letter-spacing="4">WEBSHOP</text>
 </svg>"""
+
 
 def _logo_emerald(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
@@ -80,6 +87,7 @@ def _logo_emerald(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#059669" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_green(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="{d}"/><stop offset="100%" stop-color="{p}"/></linearGradient></defs>
@@ -90,6 +98,7 @@ def _logo_green(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#15803D" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_red(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="{d}"/><stop offset="100%" stop-color="#FCA5A5"/></linearGradient></defs>
@@ -98,6 +107,7 @@ def _logo_red(p, d):
   <text x="48" y="38" font-family="{FONT}" font-size="21" font-weight="800" fill="#450A0A" letter-spacing="0.5">INVENTO</text>
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#DC2626" letter-spacing="4">WEBSHOP</text>
 </svg>"""
+
 
 def _logo_orange(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
@@ -117,6 +127,7 @@ def _logo_orange(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#EA580C" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_amber(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="{p}"/><stop offset="100%" stop-color="{d}"/></linearGradient></defs>
@@ -127,6 +138,7 @@ def _logo_amber(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#D97706" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_pink(p, d):
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="{p}"/><stop offset="100%" stop-color="{d}"/></linearGradient></defs>
@@ -136,13 +148,15 @@ def _logo_pink(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#DB2777" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 def _logo_violet(p, d):
 	import math
+
 	pts = []
 	for i in range(10):
 		r = 23 if i % 2 == 0 else 10
 		a = math.radians(i * 36 - 90)
-		pts.append(f"{23 + r*math.cos(a):.1f},{31 + r*math.sin(a):.1f}")
+		pts.append(f"{23 + r * math.cos(a):.1f},{31 + r * math.sin(a):.1f}")
 	star = " ".join(pts)
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 64">
   <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="{p}"/><stop offset="100%" stop-color="{d}"/></linearGradient></defs>
@@ -151,14 +165,24 @@ def _logo_violet(p, d):
   <text x="49" y="53" font-family="{FONT}" font-size="9" font-weight="600" fill="#7C3AED" letter-spacing="4">WEBSHOP</text>
 </svg>"""
 
+
 LOGO_FN = {
-	"black": _logo_black, "slate": _logo_slate, "blue": _logo_blue,
-	"sky": _logo_sky, "teal": _logo_teal, "emerald": _logo_emerald,
-	"green": _logo_green, "red": _logo_red, "orange": _logo_orange,
-	"amber": _logo_amber, "pink": _logo_pink, "violet": _logo_violet,
+	"black": _logo_black,
+	"slate": _logo_slate,
+	"blue": _logo_blue,
+	"sky": _logo_sky,
+	"teal": _logo_teal,
+	"emerald": _logo_emerald,
+	"green": _logo_green,
+	"red": _logo_red,
+	"orange": _logo_orange,
+	"amber": _logo_amber,
+	"pink": _logo_pink,
+	"violet": _logo_violet,
 }
 
 # ── Carousel SVGs ─────────────────────────────────────────────────────────────
+
 
 def _c1(t):
 	p, d, l, f = t["p"], t["d"], t["l"], t["f"]
@@ -181,6 +205,7 @@ def _c1(t):
   <rect x="100" y="412" width="196" height="54" rx="27" fill="{p}"/>
   <text x="198" y="445" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">Shop Now &#x2192;</text>
 </svg>"""
+
 
 def _c2(t):
 	p, d, l, f = t["p"], t["d"], t["l"], t["f"]
@@ -209,6 +234,7 @@ def _c2(t):
   <text x="214" y="459" font-size="16" font-weight="700" fill="#FFFFFF" text-anchor="middle">Explore Collection &#x2192;</text>
 </svg>"""
 
+
 def _c3(t):
 	p, d, f = t["p"], t["d"], t["f"]
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 520" font-family="{FONT}">
@@ -236,7 +262,9 @@ def _c3(t):
   <text x="205" y="453" font-size="16" font-weight="700" fill="{p}" text-anchor="middle">Grab the Deal &#x2192;</text>
 </svg>"""
 
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def _write(files_dir, filename, content):
 	path = os.path.join(files_dir, filename)
@@ -244,7 +272,9 @@ def _write(files_dir, filename, content):
 		fh.write(content)
 	return f"/files/{filename}"
 
+
 # ── Patch entry point ─────────────────────────────────────────────────────────
+
 
 def execute():
 	if not frappe.db.table_exists("tabWebshop Theme"):
@@ -257,18 +287,21 @@ def execute():
 		slug = t["slug"]
 		theme_name = t["name"]
 
-		logo_url = _write(files_dir, f"ws_theme_{slug}_logo.svg",
-		                  LOGO_FN[slug](t["p"], t["d"]))
-		c1_url   = _write(files_dir, f"ws_theme_{slug}_c1.svg", _c1(t))
-		c2_url   = _write(files_dir, f"ws_theme_{slug}_c2.svg", _c2(t))
-		c3_url   = _write(files_dir, f"ws_theme_{slug}_c3.svg", _c3(t))
+		logo_url = _write(files_dir, f"ws_theme_{slug}_logo.svg", LOGO_FN[slug](t["p"], t["d"]))
+		c1_url = _write(files_dir, f"ws_theme_{slug}_c1.svg", _c1(t))
+		c2_url = _write(files_dir, f"ws_theme_{slug}_c2.svg", _c2(t))
+		c3_url = _write(files_dir, f"ws_theme_{slug}_c3.svg", _c3(t))
 
 		if frappe.db.exists("Webshop Theme", theme_name):
-			frappe.db.set_value("Webshop Theme", theme_name, {
-				"logo":            logo_url,
-				"carousel_image_1": c1_url,
-				"carousel_image_2": c2_url,
-				"carousel_image_3": c3_url,
-			})
+			frappe.db.set_value(
+				"Webshop Theme",
+				theme_name,
+				{
+					"logo": logo_url,
+					"carousel_image_1": c1_url,
+					"carousel_image_2": c2_url,
+					"carousel_image_3": c3_url,
+				},
+			)
 
 	frappe.db.commit()

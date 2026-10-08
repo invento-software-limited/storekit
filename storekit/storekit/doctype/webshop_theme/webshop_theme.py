@@ -11,25 +11,40 @@ import frappe
 from frappe.model.document import Document
 
 THEME_FIELDS = [
-	"logo", "footer_logo", "why_us_bg",
-	"theme_primary", "theme_text", "theme_bg",
-	"btn_color", "btn_bg_color", "btn_hover_color", "btn_hover_bg_color",
-	"primary_color", "primary_color_hover", "primary_color_light", "primary_color_faint",
-	"primary_text_color", "primary_text_hover",
-	"light_bg_color", "warm_bg_color", "secondary_bg_color",
-	"carousel_image_1", "carousel_image_2", "carousel_image_3",
+	"logo",
+	"footer_logo",
+	"why_us_bg",
+	"theme_primary",
+	"theme_text",
+	"theme_bg",
+	"btn_color",
+	"btn_bg_color",
+	"btn_hover_color",
+	"btn_hover_bg_color",
+	"primary_color",
+	"primary_color_hover",
+	"primary_color_light",
+	"primary_color_faint",
+	"primary_text_color",
+	"primary_text_hover",
+	"light_bg_color",
+	"warm_bg_color",
+	"secondary_bg_color",
+	"carousel_image_1",
+	"carousel_image_2",
+	"carousel_image_3",
 ]
 
 # Stable SVG filenames written to builder_assets on every apply
 STABLE = {
-	"logo":         "ws_logo.svg",
-	"footer_logo":  "ws_footer_logo.svg",
-	"why_us_bg":    "ws_section_bg.svg",
-	"carousel_1":   "ws_carousel_1.svg",
-	"carousel_2":   "ws_carousel_2.svg",
-	"carousel_3":   "ws_carousel_3.svg",
-	"footer_bg":        "ws_footer_bg.svg",       # referenced in footer.json
-	"svg_icon":         "ws_diff_icon.svg",       # What Makes Us Different inline icon
+	"logo": "ws_logo.svg",
+	"footer_logo": "ws_footer_logo.svg",
+	"why_us_bg": "ws_section_bg.svg",
+	"carousel_1": "ws_carousel_1.svg",
+	"carousel_2": "ws_carousel_2.svg",
+	"carousel_3": "ws_carousel_3.svg",
+	"footer_bg": "ws_footer_bg.svg",  # referenced in footer.json
+	"svg_icon": "ws_diff_icon.svg",  # What Makes Us Different inline icon
 	"opening_hours_bg": "ws_opening_hours_bg.svg",
 }
 
@@ -42,25 +57,25 @@ class WebshopTheme(Document):
 
 	def _derive_theme_colors(self):
 		primary = self.get("theme_primary")
-		text    = self.get("theme_text")
-		bg      = self.get("theme_bg")
+		text = self.get("theme_text")
+		bg = self.get("theme_bg")
 		if not (primary or text or bg):
 			return
 		if primary:
 			h, l, s = _hls(primary)
-			self.primary_color       = primary
+			self.primary_color = primary
 			self.primary_color_hover = _hex(h, l - 0.10, s)
 			self.primary_color_light = _hex(h, l + 0.15, s)
-			self.primary_color_faint = _hex(h, 0.92,     s * 0.25)
+			self.primary_color_faint = _hex(h, 0.92, s * 0.25)
 		if text:
 			h, l, s = _hls(text)
-			self.primary_text_color  = _hex(h, max(0.08, l - 0.15), s)
-			self.primary_text_hover  = text
+			self.primary_text_color = _hex(h, max(0.08, l - 0.15), s)
+			self.primary_text_hover = text
 		if bg:
 			h, l, s = _hls(bg)
-			self.light_bg_color      = _hex(h, min(0.97, l + 0.05), s)
-			self.warm_bg_color       = bg
-			self.secondary_bg_color  = _hex(h, l, s * 0.15)
+			self.light_bg_color = _hex(h, min(0.97, l + 0.05), s)
+			self.warm_bg_color = bg
+			self.secondary_bg_color = _hex(h, l, s * 0.15)
 
 
 @frappe.whitelist()
@@ -77,10 +92,14 @@ def apply_theme(name):
 
 	settings.custom_images = []
 	for row in theme.get("custom_images") or []:
-		settings.append("custom_images", {
-			"image": row.get("image"), "image_key": row.get("image_key"),
-			"description": row.get("description"),
-		})
+		settings.append(
+			"custom_images",
+			{
+				"image": row.get("image"),
+				"image_key": row.get("image_key"),
+				"description": row.get("description"),
+			},
+		)
 	settings.save(ignore_permissions=True)
 
 	# Write all SVG stable files to builder_assets
@@ -89,18 +108,20 @@ def apply_theme(name):
 	frappe.db.set_value("Webshop Theme", name, "status", "Applied")
 	frappe.clear_cache()
 	from frappe.website.utils import clear_cache as _wc
+
 	_wc()
 	return {"message": "Theme applied successfully"}
 
 
 # ── SVG generation orchestrator ───────────────────────────────────────────────
 
+
 def _write_all_svgs(theme):
-	p  = theme.primary_color       or "#111827"
-	d  = theme.primary_color_hover  or "#030712"
-	l  = theme.primary_color_light  or "#374151"
-	f  = theme.primary_color_faint  or "#F9FAFB"
-	tc = theme.primary_text_color   or "#0F172A"
+	p = theme.primary_color or "#111827"
+	d = theme.primary_color_hover or "#030712"
+	l = theme.primary_color_light or "#374151"
+	f = theme.primary_color_faint or "#F9FAFB"
+	tc = theme.primary_text_color or "#0F172A"
 
 	ba = os.path.join(frappe.get_app_path("storekit"), "public", "builder_assets")
 	os.makedirs(ba, exist_ok=True)
@@ -116,7 +137,7 @@ def _write_all_svgs(theme):
 	logo_url = theme.get("logo")
 	logo_copied = False
 	if logo_url and logo_url.startswith("/files/"):
-		src = os.path.join(site_public, "files", logo_url[len("/files/"):])
+		src = os.path.join(site_public, "files", logo_url[len("/files/") :])
 		if os.path.exists(src):
 			shutil.copy2(src, os.path.join(ba, STABLE["logo"]))
 			logo_copied = True
@@ -127,7 +148,7 @@ def _write_all_svgs(theme):
 	footer_logo_url = theme.get("footer_logo") or logo_url
 	footer_copied = False
 	if footer_logo_url and footer_logo_url.startswith("/files/"):
-		src = os.path.join(site_public, "files", footer_logo_url[len("/files/"):])
+		src = os.path.join(site_public, "files", footer_logo_url[len("/files/") :])
 		if os.path.exists(src):
 			shutil.copy2(src, os.path.join(ba, STABLE["footer_logo"]))
 			footer_copied = True
@@ -143,7 +164,7 @@ def _write_all_svgs(theme):
 		src_url = theme.get(field)
 		copied = False
 		if src_url and src_url.startswith("/files/"):
-			src = os.path.join(site_public, "files", src_url[len("/files/"):])
+			src = os.path.join(site_public, "files", src_url[len("/files/") :])
 			if os.path.exists(src):
 				shutil.copy2(src, os.path.join(ba, STABLE[key]))
 				copied = True
@@ -163,6 +184,7 @@ def _write_all_svgs(theme):
 
 
 # ── SVG builders ──────────────────────────────────────────────────────────────
+
 
 def _svg_logo(p, d, tc):
 	"""Navbar logo: water-drop icon + INVENTO / WEBSHOP, theme text colors."""
@@ -244,9 +266,9 @@ def _svg_opening_hours_bg(p, d, l, f):
 	"""
 	Sunrise starburst for the Opening Hours panel.
 	Sun fully inside viewBox (centre 210,310 r=60). Concentric rings + fanned rays
-	all within 420×380 bounds so the complete image is always visible.
+	all within 420x380 bounds so the complete image is always visible.
 	Ray endpoints computed for angle-from-vertical θ, length L:
-	  end = (210 + L·sin θ,  310 − L·cos θ)
+	  end = (210 + L·sin θ,  310 - L·cos θ)
 	"""
 	return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 380" fill="none">
   <!-- Concentric rings centred on sun -->
@@ -473,7 +495,6 @@ def _svg_carousel_3(p, d, l, f):
 </svg>"""
 
 
-
 def _update_navbar_logo(logo_url):
 	"""Set the navbar & mobile-nav logo src to logo_url.
 	Using the theme's own /files/ URL means every theme has a unique URL —
@@ -489,10 +510,7 @@ def _update_navbar_logo(logo_url):
 	replacement = f'"src":"{logo_url}"'
 
 	# 1. Update JSON files on disk
-	comp_dir = os.path.join(
-		frappe.get_app_path("storekit"),
-		"builder_files", "components"
-	)
+	comp_dir = os.path.join(frappe.get_app_path("storekit"), "builder_files", "components")
 	for comp_name in ("navbar", "mobile_nav"):
 		json_path = os.path.join(comp_dir, comp_name, f"{comp_name}.json")
 		if os.path.exists(json_path):
@@ -522,6 +540,7 @@ def _update_navbar_logo(logo_url):
 
 # ── SVG icon color patcher ────────────────────────────────────────────────────
 
+
 def _patch_svg_icon(primary_color):
 	"""Replace hardcoded #484848 with theme primary color in the Why Us page."""
 	OLD = "#484848"
@@ -529,8 +548,7 @@ def _patch_svg_icon(primary_color):
 
 	# Update JSON file on disk
 	json_path = os.path.join(
-		frappe.get_app_path("storekit"),
-		"builder_files", "pages", "page_5330135a", "page_5330135a.json"
+		frappe.get_app_path("storekit"), "builder_files", "pages", "page_5330135a", "page_5330135a.json"
 	)
 	if os.path.exists(json_path):
 		content = open(json_path, encoding="utf-8").read()
@@ -556,6 +574,7 @@ def _patch_svg_icon(primary_color):
 
 
 # ── Color helpers ─────────────────────────────────────────────────────────────
+
 
 def _darken_hex(hex_color, amount):
 	h = hex_color.lstrip("#")

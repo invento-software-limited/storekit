@@ -19,16 +19,24 @@ frappe.ui.form.on("Webshop Theme", {
 				function () {
 					if (is_applied) return;
 					frappe.confirm(
-						__("Apply <b>{0}</b> to the webshop? This will update Webshop Settings, regenerate assets and clear all caches.", [frm.doc.theme_name]),
+						__(
+							"Apply <b>{0}</b> to the webshop? This will update Webshop Settings, regenerate assets and clear all caches.",
+							[frm.doc.theme_name]
+						),
 						function () {
 							frappe.call({
 								method: "storekit.storekit.doctype.webshop_theme.webshop_theme.apply_theme",
 								args: { name: frm.doc.name },
 								freeze: true,
-								freeze_message: __("Applying theme — regenerating assets and clearing cache…"),
+								freeze_message: __(
+									"Applying theme — regenerating assets and clearing cache…"
+								),
 								callback: function (r) {
 									if (!r.exc) {
-										frappe.show_alert({ message: __("Theme applied successfully"), indicator: "green" });
+										frappe.show_alert({
+											message: __("Theme applied successfully"),
+											indicator: "green",
+										});
 										frm.reload_doc();
 									}
 								},

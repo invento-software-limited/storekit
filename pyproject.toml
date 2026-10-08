@@ -26,6 +26,10 @@ packages = []
 [tool.ruff]
 line-length = 110
 target-version = "py314"
+# Builder exports: page data scripts run in Builder's sandbox (frappe/data injected) and are
+# regenerated from the DB, so they are neither linted nor reformatted.
+extend-exclude = ["storekit/builder_files"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [

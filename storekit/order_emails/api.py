@@ -1,9 +1,9 @@
 """Order-email overrides of the cart/order APIs (wired in hooks.py)."""
 
 import frappe
-from storekit.webshop_functions.cart import place_order as _place_order
 
 from storekit.order_emails.events import STAFF_ROLES
+from storekit.webshop_functions.cart import place_order as _place_order
 
 COD = "Cash on Delivery"
 

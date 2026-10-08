@@ -6,6 +6,7 @@ app_publisher = "Invento Software Limited"
 app_description = "Generic Frappe ecommerce storefront: catalog, cart, checkout, orders and Builder pages"
 app_email = "hello@invento.com.bd"
 app_license = "mit"
+app_logo_url = "/assets/storekit/images/storekit-logo.svg"
 
 required_apps = ["erpnext", "builder"]
 
@@ -23,7 +24,10 @@ jinja = {"methods": ["storekit.order_emails.jinja_methods.order_email_context"]}
 # Installation
 # ------------
 
-after_install = "storekit.setup.legacy_migration.execute"
+after_install = [
+	"storekit.setup.legacy_migration.execute",
+	"storekit.order_emails.setup.after_migrate",
+]
 after_migrate = ["storekit.order_emails.setup.after_migrate"]
 
 # DocType Class

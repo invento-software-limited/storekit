@@ -7,4 +7,5 @@ from frappe.model.document import Document
 
 class GoogleBusinessReview(Document):
 	"""Google Business Review DocType for storing reviews"""
+
 	pass

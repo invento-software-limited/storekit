@@ -1,0 +1,145 @@
+/* Base: frappe-report-dashboard-builder design system (scoped to .cd). */
+/* Invento ERPNext v16 dashboard design system.
+   Goes inside a Custom HTML Block on a real install, or a <style> in the
+   prototype shell. Scoped to .cd so it cannot leak into Frappe desk styles. */
+
+.cd{
+  --ink:#0d1117; --mid:#5c6672; --soft:#98a1ac; --rule:#e3e7ec; --rule-2:#f0f3f6;
+  --green:#097C52; --r:8px;
+  font-family:var(--font-stack); color:var(--ink);
+  font-feature-settings:"tnum" 1; padding:4px 2px 26px;
+}
+.cd *,.cd *::before,.cd *::after{box-sizing:border-box}
+
+/* one micro-label spec, used everywhere */
+.cd-k,.sec,.tb th,.fl-k{font-size:9px;letter-spacing:.16em;text-transform:uppercase;font-weight:500}
+.cd-k,.sec,.tb th{color:black}
+
+/* one surface spec: cards share radius, border, shadow */
+.surf{background:#fff;border:1px solid var(--rule);border-radius:var(--r);
+  box-shadow:0 1px 1px rgba(16,24,40,.03),0 12px 24px -22px rgba(16,24,40,.30)}
+
+/* ---------------- 1 · header ---------------- */
+.hd{position:relative;overflow:hidden;border-radius:var(--r);padding:20px 22px;
+  border:1px solid #c6d8cd;
+  background:linear-gradient(105deg,#d6e9de 0%,#d3e2ee 50%,#ded6ec 100%);
+  display:flex;align-items:center;gap:18px;flex-wrap:nowrap}
+.hd::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;
+  background:linear-gradient(180deg,#0a5a3c,#22405e)}
+.hd-mono{width:46px;height:46px;flex:none;border-radius:6px;background:#0a5a3c;
+  border:1px solid rgba(255,255,255,.28);color:#fff;display:flex;align-items:center;
+  justify-content:center;font-size:15px;font-weight:600}
+.hd-id{flex:1;min-width:0}
+.hd-name{font-size:23px;font-weight:600;letter-spacing:-.5px;line-height:1.1}
+.hd-meta{font-size:11.5px;color:#4a5765;margin-top:6px}
+.hd-meta b{font-weight:500;color:var(--ink)}
+.hd-r{flex:none;display:flex;gap:28px;text-align:right}
+.hd-r .v{font-size:20px;font-weight:600;letter-spacing:-.5px;line-height:1.15;margin-top:5px}
+
+/* ---------------- 2 · metric row ---------------- */
+.mx{overflow:hidden;display:grid;grid-template-columns:repeat(4,1fr);margin-top:14px}
+.mx-c{padding:16px 17px 14px;border-left:1px solid var(--rule-2);display:flex;flex-direction:column;min-width:0}
+.mx-c:first-child{border-left:0}
+.mx-v{font-size:26px;font-weight:600;letter-spacing:-1.1px;line-height:1.05;margin-top:9px}
+.mx-v span{font-size:12.5px;font-weight:500;color:var(--soft);margin-left:2px;letter-spacing:-.2px}
+.mx-s{font-size:11.5px;color:black;margin-top:8px;display:flex;align-items:center;
+  gap:7px;white-space:nowrap;min-height:20px}
+.mx-sp{margin-top:auto;padding-top:15px;line-height:0}
+
+/* one pill spec: deep fill, white text — metric chips and status pills alike */
+.pill{display:inline-block;font-size:10.5px;font-weight:600;padding:3px 8px;border-radius:5px;
+  color:#fff;letter-spacing:.02em;white-space:nowrap;line-height:1.3}
+
+/* ---------------- 3 · order to cash ---------------- */
+.sec{margin:30px 0 14px;display:flex;align-items:center;gap:14px}
+.sec::after{content:"";flex:1;height:1px;background:var(--rule)}
+.fl{display:grid;grid-template-columns:repeat(5,1fr);gap:2px}
+.fl-c{padding:15px 15px 14px;background:var(--bg);color:#fff}
+.fl-c:first-child{border-radius:var(--r) 0 0 var(--r)}
+.fl-c:last-child{border-radius:0 var(--r) var(--r) 0}
+.fl-k{color:rgba(255,255,255,.62)}
+.fl-v{font-size:21px;font-weight:600;letter-spacing:-.8px;margin-top:9px}
+.fl-s{font-size:10.5px;color:rgba(255,255,255,.62);margin-top:5px}
+
+/* ---------------- 4 · trading history (now a card) ---------------- */
+.card{padding:17px 19px 16px;margin-top:25px}
+.two{display:grid;grid-template-columns:1.3fr 1fr;gap:34px;align-items:start}
+.hrow{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:15px}
+.h{font-size:12.5px;font-weight:600;letter-spacing:-.1px;flex:none}
+.hs{font-size:10.5px;color:black;text-align:right;flex:1;min-width:0}
+.lgd{display:flex;justify-content:center;gap:16px;font-size:10.5px;color:var(--mid);margin-top:6px}
+.lgd i{width:9px;height:9px;display:inline-block;margin-right:6px;vertical-align:-1px}
+.age{width:100%;border-collapse:collapse;font-size:12px}
+.age td{padding:10px 0;border-bottom:1px solid var(--rule-2);color:var(--a);font-weight:500}
+.age tr:last-child td{border-bottom:0}
+.age td.n{text-align:right;font-weight:600}
+.age i{width:3px;height:13px;display:inline-block;margin-right:10px;vertical-align:-2px;background:var(--a)}
+
+/* ---------------- 5 · top products ---------------- */
+.rk{display:flex;flex-direction:column;gap:13px}
+.rk-r{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.rk-d{width:7px;height:7px;border-radius:2px;flex:none}
+.rk-n{font-size:12.5px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rk-v{font-size:12px;font-weight:600}
+.rk-t{height:5px;border-radius:3px;background:#eff2f6;overflow:hidden}
+.rk-f{height:100%;border-radius:3px}
+
+/* ---------------- 6 · open documents ---------------- */
+.tb{width:100%;border-collapse:collapse;font-size:12px}
+.tb th{text-align:left;padding:0 12px 10px 0;border-bottom:1px solid var(--rule)}
+.tb th.n,.tb td.n{text-align:right;padding-right:0}
+.tb td{padding:11px 12px 11px 0;border-bottom:2px solid var(--rule-2);color:var(--mid)}
+.tb tr:last-child td{border-bottom:0}
+.tb td.n{color:var(--ink);font-weight:500}
+.tb td.doc a{color:#22405e;font-weight:500;text-decoration:none}
+.tb td.doc a:hover{text-decoration:underline;text-underline-offset:2px}
+
+/* ---------------- StoreKit Overview additions ---------------- */
+.sko{max-width:1400px;margin:0 auto}
+.sko .mx{grid-template-columns:repeat(6,1fr)}
+.sko .mx-c.tint{background:#f8fafc}
+.sko .mx-v{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sko .sg-b{display:flex;height:8px;border-radius:4px;overflow:hidden}
+.sko .sg-l{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:9.5px;color:#5c6672;margin-top:5px;line-height:1.2}
+.sko .sg-l span{display:flex;align-items:center;gap:4px;white-space:nowrap}
+.sko .sg-l i{width:7px;height:7px;display:inline-block;border-radius:2px}
+.sko .fl-c{cursor:pointer;transition:filter .12s}
+.sko .fl-c:hover{filter:brightness(1.12)}
+.sko .fl-x{display:flex;gap:18px;justify-content:flex-end;font-size:11px;color:var(--mid);margin-top:8px}
+.sko .fl-x a{color:var(--mid);text-decoration:none;cursor:pointer}
+.sko .fl-x a:hover{color:var(--ink);text-decoration:underline}
+.sko .rk-r{cursor:pointer}
+.sko .rk-r:hover .rk-n{text-decoration:underline;text-underline-offset:2px}
+.sko .rk-q{font-size:10.5px;color:var(--soft);margin-left:6px;white-space:nowrap}
+.sko .two{margin-top:0}
+.sko .two>.card{margin-top:25px}
+.sko .two.even{grid-template-columns:1fr 1fr}
+.sko .tb td{white-space:nowrap}
+.sko .tb td.wrap{white-space:normal;max-width:280px}
+.sko .tb a.lnk{color:#22405e;font-weight:500;text-decoration:none;cursor:pointer}
+.sko .tb a.lnk:hover{text-decoration:underline}
+.sko .tw{overflow-x:auto}
+.sko .pg{display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:12px;font-size:11px;color:var(--mid)}
+.sko .pg button{border:1px solid var(--rule);background:#fff;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer}
+.sko .pg button:disabled{opacity:.4;cursor:default}
+.sko .empty{padding:26px 0;text-align:center;color:var(--soft);font-size:12px}
+.sko .stat{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.sko .stat-c{padding:12px 14px;border:1px solid var(--rule-2);border-radius:8px}
+.sko .stat-v{font-size:20px;font-weight:600;letter-spacing:-.6px;margin-top:6px}
+.sko .stat-s{font-size:10.5px;color:var(--mid);margin-top:3px}
+.sko .stars{color:#8a5a16;letter-spacing:1px;font-size:11px}
+.sko .state{padding:60px 0;text-align:center;color:var(--mid);font-size:13px}
+.sko.loading .body{opacity:.45;pointer-events:none;transition:opacity .15s}
+
+@media (max-width:1280px){.sko .mx{grid-template-columns:repeat(3,1fr)}
+  .sko .mx-c:nth-child(4){border-left:0}
+  .sko .mx-c:nth-child(n+4){border-top:1px solid var(--rule-2)}}
+@media (max-width:900px){
+  .sko .two,.sko .two.even{grid-template-columns:1fr;gap:0}
+  .sko .fl{grid-template-columns:repeat(2,1fr)}
+  .sko .fl-c,.sko .fl-c:first-child,.sko .fl-c:last-child{border-radius:var(--r)}
+  .sko .hd{flex-wrap:wrap}.sko .hd-r{width:100%;justify-content:flex-start;text-align:left}}
+@media (max-width:640px){.sko .mx{grid-template-columns:1fr 1fr}
+  .sko .mx-c:nth-child(odd){border-left:0}.sko .mx-c:nth-child(4){border-left:1px solid var(--rule-2)}
+  .sko .mx-c:nth-child(n+3){border-top:1px solid var(--rule-2)}
+  .sko .stat{grid-template-columns:1fr}}

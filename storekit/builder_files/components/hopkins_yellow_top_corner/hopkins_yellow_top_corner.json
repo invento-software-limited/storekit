@@ -1,0 +1,15 @@
+{
+ "block": "{\n \"activeState\": null,\n \"attributes\": {},\n \"baseStyles\": {\n  \"backgroundImage\": \"url(transparent)\",\n  \"borderColor\": \"#faa41a\",\n  \"borderStyle\": \"solid\",\n  \"borderWidth\": \"12px 12px 0px 0px\",\n  \"height\": \"60px\",\n  \"position\": \"absolute\",\n  \"right\": \"-6px         \",\n  \"top\": \"-6px\",\n  \"width\": \"60px\",\n  \"zIndex\": \"2\"\n },\n \"blockClientScript\": \"\",\n \"blockDataScript\": \"\",\n \"blockId\": \"3bvs7f363\",\n \"blockName\": null,\n \"children\": [],\n \"classes\": [],\n \"customAttributes\": {},\n \"dataKey\": null,\n \"dynamicValues\": [],\n \"element\": \"div\",\n \"extendedFromComponent\": null,\n \"innerHTML\": null,\n \"isChildOfComponent\": null,\n \"isRepeaterBlock\": false,\n \"mobileStyles\": {},\n \"originalElement\": \"\",\n \"props\": {},\n \"rawStyles\": {},\n \"referenceBlockId\": null,\n \"tabletStyles\": {},\n \"visibilityCondition\": null\n}",
+ "component_data_script": null,
+ "component_id": "6121e132dbcd4db9",
+ "component_name": "HOPKINS Yellow Top Corner",
+ "creation": "2026-07-30 14:18:03.264020",
+ "docstatus": 0,
+ "doctype": "Builder Component",
+ "for_web_page": null,
+ "idx": 0,
+ "modified": "2026-07-30 08:17:56.557848",
+ "modified_by": "Administrator",
+ "name": "6121e132dbcd4db9",
+ "owner": "Administrator"
+}

@@ -1,0 +1,49 @@
+{
+ "app": "storekit",
+ "creation": "2026-06-04 11:53:24.701003",
+ "docstatus": 0,
+ "doctype": "Workspace Sidebar",
+ "idx": 0,
+ "items": [
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Trusted Client",
+   "link_to": "Trusted Client",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Client Testimonial",
+   "link_to": "Client Testimonial",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  },
+  {
+   "child": 0,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Case Study",
+   "link_to": "Case Study",
+   "link_type": "DocType",
+   "show_arrow": 0,
+   "type": "Link"
+  }
+ ],
+ "modified": "2026-06-04 11:55:04.640318",
+ "modified_by": "Administrator",
+ "module": "StoreKit",
+ "name": "StoreKit",
+ "owner": "Administrator",
+ "standard": 1,
+ "title": "StoreKit"
+}

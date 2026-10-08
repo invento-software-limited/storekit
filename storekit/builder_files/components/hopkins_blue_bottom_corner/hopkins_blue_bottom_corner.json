@@ -1,0 +1,15 @@
+{
+ "block": "{\n \"activeState\": null,\n \"attributes\": {},\n \"baseStyles\": {\n  \"backgroundColor\": \"transparent\",\n  \"borderBottom\": \"6px solid #1a1f6e\",\n  \"borderColor\": \"#1a1f6e\",\n  \"borderLeft\": \"6px solid #1a1f6e\",\n  \"borderStyle\": \"solid\",\n  \"borderWidth\": \"0px 0px 12px 12px\",\n  \"bottom\": \"-6px\",\n  \"height\": \"60px\",\n  \"left\": \"-6px\",\n  \"position\": \"absolute\",\n  \"width\": \"60px\",\n  \"zIndex\": \"2\"\n },\n \"blockClientScript\": \"\",\n \"blockDataScript\": \"\",\n \"blockId\": \"079czx8i9\",\n \"blockName\": null,\n \"children\": [],\n \"classes\": [],\n \"customAttributes\": {},\n \"dataKey\": null,\n \"dynamicValues\": [],\n \"element\": \"div\",\n \"extendedFromComponent\": null,\n \"innerHTML\": null,\n \"isChildOfComponent\": null,\n \"isRepeaterBlock\": false,\n \"mobileStyles\": {},\n \"originalElement\": \"\",\n \"props\": {},\n \"rawStyles\": {},\n \"referenceBlockId\": null,\n \"tabletStyles\": {},\n \"visibilityCondition\": null\n}",
+ "component_data_script": null,
+ "component_id": "536fead364b382bf",
+ "component_name": "HOPKINS Blue Bottom Corner",
+ "creation": "2026-07-30 14:18:03.155266",
+ "docstatus": 0,
+ "doctype": "Builder Component",
+ "for_web_page": null,
+ "idx": 0,
+ "modified": "2026-07-30 08:17:56.557848",
+ "modified_by": "Administrator",
+ "name": "536fead364b382bf",
+ "owner": "Administrator"
+}

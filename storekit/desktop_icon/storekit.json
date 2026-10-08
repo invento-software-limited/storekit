@@ -1,0 +1,22 @@
+{
+ "app": "storekit",
+ "bg_color": "blue",
+ "creation": "2026-06-04 11:53:56.501458",
+ "docstatus": 0,
+ "doctype": "Desktop Icon",
+ "hidden": 0,
+ "icon_image": "/files/Screenshot from 2026-06-04 11-20-259066a8.png",
+ "icon_type": "App",
+ "idx": 0,
+ "label": "StoreKit",
+ "link_to": "StoreKit",
+ "link_type": "Workspace Sidebar",
+ "logo_url": "/assets/storekit/img/logo.png",
+ "modified": "2026-06-04 12:25:14.253399",
+ "modified_by": "Administrator",
+ "name": "StoreKit",
+ "owner": "Administrator",
+ "restrict_removal": 0,
+ "roles": [],
+ "standard": 1
+}

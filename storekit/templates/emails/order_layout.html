@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<title>{{ heading }}</title>
+<style>
+	body { margin: 0; padding: 0; background: #f3f4f6; -webkit-text-size-adjust: 100%; }
+	table { border-collapse: collapse; }
+	img { border: 0; max-width: 100%; height: auto; }
+	a { color: {{ o.brand_color or "#1f3a5f" }}; }
+	@media only screen and (max-width: 620px) {
+		.container { width: 100% !important; }
+		.pad { padding-left: 16px !important; padding-right: 16px !important; }
+		.stack { display: block !important; width: 100% !important; box-sizing: border-box; padding: 0 0 16px 0 !important; }
+		.hide-m { display: none !important; }
+		.heading { font-size: 22px !important; }
+	}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1f2937;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;">
+<tr><td align="center" style="padding:24px 12px;">
+	<table role="presentation" class="container" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;background:#ffffff;border-radius:8px;overflow:hidden;">
+		<tr><td align="center" style="background:{{ o.brand_color or '#1f3a5f' }};padding:22px 24px;">
+			{% if o.logo_url %}<img src="{{ o.logo_url }}" alt="{{ o.company_name }}" height="44" style="display:block;height:44px;max-width:220px;">
+			{% else %}<span style="font-size:22px;font-weight:700;color:#ffffff;">{{ o.company_name }}</span>{% endif %}
+		</td></tr>
+		<tr><td class="pad" style="padding:32px 32px 8px 32px;">
+			<h1 class="heading" style="margin:0;font-size:26px;line-height:1.25;color:#111827;">{{ heading }}</h1>
+		</td></tr>
+		<tr><td class="pad" style="padding:8px 32px 32px 32px;font-size:15px;line-height:1.6;color:#374151;">
+			{% block body %}{% endblock %}
+		</td></tr>
+		<tr><td class="pad" style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:13px;line-height:1.6;color:#6b7280;">
+			<strong style="color:#374151;">Need help?</strong><br>
+			{% if o.support_email %}Email: <a href="mailto:{{ o.support_email }}">{{ o.support_email }}</a><br>{% endif %}
+			{% if o.support_phone %}Phone: {{ o.support_phone }}<br>{% endif %}
+		</td></tr>
+		<tr><td class="pad" align="center" style="padding:20px 32px 28px 32px;font-size:12px;line-height:1.6;color:#9ca3af;">
+			<strong>{{ o.company_name }}</strong>{% if o.company_address %}<br>{{ o.company_address | replace("\n", "<br>") }}{% endif %}
+		</td></tr>
+	</table>
+</td></tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,33 @@
+[
+ {
+  "btn_bg_color": "#262C66",
+  "btn_color": "#FFFFFF",
+  "btn_hover_bg_color": "#1E2352",
+  "btn_hover_color": "#FFFFFF",
+  "carousel_image_1": null,
+  "carousel_image_2": null,
+  "carousel_image_3": null,
+  "custom_images": [],
+  "default_sales_invoice_pdf_format": null,
+  "docstatus": 0,
+  "doctype": "Webshop Settings",
+  "footer_logo": null,
+  "light_bg_color": "#FBFCF2",
+  "logo": null,
+  "modified": "2026-09-29 11:28:53.077509",
+  "name": "Webshop Settings",
+  "primary_color": "#262C66",
+  "primary_color_faint": "#E8E8EC",
+  "primary_color_hover": "#181B40",
+  "primary_color_light": "#3A449D",
+  "primary_text_color": "#151313",
+  "primary_text_hover": "#231F20",
+  "secondary_bg_color": "#F7F7F6",
+  "show_price_for_guest": 0,
+  "theme_bg": "#FBFCF2",
+  "theme_primary": "#262C66",
+  "theme_text": "#231F20",
+  "warm_bg_color": "#FBFCF2",
+  "why_us_bg": null
+ }
+]

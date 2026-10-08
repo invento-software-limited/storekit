@@ -1,32 +1,40 @@
 ### StoreKit
 
-Generic Frappe ecommerce storefront: catalog, cart, checkout, orders and Builder pages
+Frappe/ERPNext ecommerce storefront built on Frappe Builder: catalog, cart, checkout, payments, order emails and Builder pages.
+
+StoreKit merges the former `invento_webshop` (generic webshop engine) and `hopkins` (Hopkins site, order emails) apps.
+
+### Layout
+
+| Path | What |
+|---|---|
+| `storekit/storekit/doctype/` | Webshop Settings/Theme, payments (Lloyds Connect, Payment Gateway), Google Business reviews, downloads, FAQ, case studies, testimonials |
+| `storekit/api/`, `storekit/webshop_functions/` | Whitelisted storefront APIs (items, cart, checkout, address, payments); `api/site.py` holds the site enquiry/newsletter/products APIs |
+| `storekit/order_emails/` | Order Notifications, email templates, COD-only `place_order` and `cancel_order` overrides |
+| `storekit/builder_files/`, `storekit/fixtures/` | Builder pages, components, client scripts, themes, settings |
+| `storekit/setup/legacy_*.py` | One-off migration from the legacy apps (runs `after_install`) plus aliases for old `invento_webshop.*` / `hopkins.*` API paths |
 
 ### Installation
 
-You can install this app using the [bench](https://github.com/frappe/bench) CLI:
-
 ```bash
-cd $PATH_TO_YOUR_BENCH
 bench get-app $URL_OF_THIS_REPO --branch develop
-bench install-app storekit
+bench --site <site> install-app storekit
 ```
 
-### Contributing
+Requires `erpnext` and `builder`.
 
-This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
+#### Migrating a site that runs invento_webshop / hopkins
 
 ```bash
-cd apps/storekit
-pre-commit install
+bench --site <site> backup --with-files
+bench --site <site> install-app storekit          # moves DocTypes, Builder records and stored method paths to storekit
+bench --site <site> remove-from-installed-apps invento_webshop
+bench --site <site> remove-from-installed-apps hopkins
+bench --site <site> execute storekit.setup.legacy_migration.drop_legacy_records
+bench --site <site> migrate
 ```
 
-Pre-commit is configured to use the following tools for checking and formatting your code:
-
-- ruff
-- eslint
-- prettier
-- pyupgrade
+Do not `uninstall-app` the legacy apps: that drops the DocType tables StoreKit now owns. Restart the web/worker processes after installing so the new package is importable.
 
 ### License
 

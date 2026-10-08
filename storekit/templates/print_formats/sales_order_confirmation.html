@@ -1,0 +1,87 @@
+{# Sales Order print format. Uses order_email_context() so branding and totals match the order emails. #}
+{% set o = order_email_context(doc) %}
+{% set accent = o.brand_color or "#1f3a5f" %}
+<style>
+	.so { font-family: Helvetica, Arial, sans-serif; font-size: 11px; color: #1f2937; line-height: 1.45; }
+	.so table { width: 100%; border-collapse: collapse; }
+	.so .muted { color: #6b7280; }
+	.so h1 { margin: 0; font-size: 22px; letter-spacing: 1px; color: {{ accent }}; }
+	.so .box { border: 1px solid #e5e7eb; padding: 10px 12px; }
+	.so .lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .6px; color: #6b7280; margin-bottom: 3px; }
+	.so .items th { background: {{ accent }}; color: #fff; padding: 8px; text-align: left; font-size: 10px; }
+	.so .items td { padding: 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+	.so .r { text-align: right; }
+	.so .c { text-align: center; }
+	.so .tot td { padding: 4px 8px; }
+	.so .grand td { border-top: 2px solid #111827; font-weight: bold; font-size: 13px; padding-top: 8px; }
+</style>
+<div class="so">
+	<table><tr>
+		<td style="width:55%; vertical-align:top;">
+			{% if o.logo_data_uri %}<img src="{{ o.logo_data_uri }}" style="max-height:56px; max-width:240px;"><br>{% endif %}
+			<strong style="font-size:13px;">{{ o.company_name }}</strong><br>
+			<span class="muted">{{ o.company_address }}</span>
+			{% if o.support_phone or o.support_email %}<br><span class="muted">{{ o.support_phone }}{% if o.support_phone and o.support_email %} &middot; {% endif %}{{ o.support_email }}</span>{% endif %}
+		</td>
+		<td style="width:45%; vertical-align:top;" class="r">
+			<h1>SALES ORDER</h1>
+			<div style="margin-top:6px;"><span class="muted">Order no.</span> <strong>{{ o.order_number }}</strong></div>
+			<div><span class="muted">Date</span> <strong>{{ o.order_date }}</strong></div>
+			<div><span class="muted">Status</span> <strong style="color:{{ accent }};">{{ o.order_status }}</strong></div>
+			{% if o.delivery_date %}<div><span class="muted">Est. delivery</span> <strong>{{ o.delivery_date }}</strong></div>{% endif %}
+		</td>
+	</tr></table>
+
+	<table style="margin-top:18px;"><tr>
+		<td style="width:49%; vertical-align:top;" class="box">
+			<div class="lbl">Bill to</div>
+			<strong>{{ o.customer_name }}</strong><br>{{ o.billing_address or "-" }}
+		</td>
+		<td style="width:2%;"></td>
+		<td style="width:49%; vertical-align:top;" class="box">
+			<div class="lbl">Deliver to</div>
+			<strong>{{ o.customer_name }}</strong><br>{{ o.shipping_address or o.billing_address or "-" }}
+			{% if o.customer_phone %}<br>Tel: {{ o.customer_phone }}{% endif %}
+		</td>
+	</tr></table>
+
+	<table class="items" style="margin-top:18px;">
+		<thead><tr>
+			<th style="width:5%;">#</th><th>Item</th><th class="c" style="width:10%;">Qty</th>
+			<th class="r" style="width:17%;">Unit price</th><th class="r" style="width:17%;">Amount</th>
+		</tr></thead>
+		<tbody>
+		{% for line in o.lines %}
+			<tr>
+				<td>{{ loop.index }}</td>
+				<td><strong>{{ line.item_name }}</strong><br><span class="muted">SKU: {{ line.item_code }}</span></td>
+				<td class="c">{{ line.qty | int if line.qty == (line.qty | int) else line.qty }}</td>
+				<td class="r">{{ line.rate }}</td><td class="r">{{ line.amount }}</td>
+			</tr>
+		{% endfor %}
+		</tbody>
+	</table>
+
+	<table style="margin-top:12px; page-break-inside:avoid;"><tr>
+		<td style="width:52%; vertical-align:top;">
+			<div class="box" style="background:#fffbeb; border-color:#fcd34d; color:#92400e;">
+				<strong>Payment method: {{ o.payment_method }}</strong><br>
+				Please pay <strong>{{ o.cod_amount }}</strong> when your order is delivered.
+			</div>
+			{% if o.order_notes %}<div class="muted" style="margin-top:8px;"><strong>Order notes:</strong> {{ o.order_notes }}</div>{% endif %}
+		</td>
+		<td style="width:4%;"></td>
+		<td style="width:44%; vertical-align:top;">
+			<table class="tot">
+				<tr><td class="muted">Subtotal</td><td class="r">{{ o.subtotal }}</td></tr>
+				{% if o.discount %}<tr><td class="muted">Discount</td><td class="r">-{{ o.discount }}</td></tr>{% endif %}
+				{% if o.tax %}<tr><td class="muted">Tax</td><td class="r">{{ o.tax }}</td></tr>{% endif %}
+				<tr><td class="muted">Delivery charge</td><td class="r">{{ o.shipping_charge or "Free" }}</td></tr>
+				<tr class="grand"><td>Grand total</td><td class="r">{{ o.order_total }}</td></tr>
+			</table>
+		</td>
+	</tr></table>
+
+	{% if doc.terms %}<div class="muted" style="margin-top:16px; font-size:10px;"><strong>Terms &amp; conditions</strong><br>{{ doc.terms }}</div>{% endif %}
+	<div class="muted c" style="margin-top:22px; font-size:10px;">Thank you for your order &mdash; {{ o.company_name }}</div>
+</div>

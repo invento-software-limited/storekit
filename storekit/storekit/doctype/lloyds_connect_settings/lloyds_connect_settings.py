@@ -204,7 +204,11 @@ def _complete_payment_logic(token: str, status: str, request_data: dict) -> None
 		try:
 			frappe.flags.data = request_data
 			if reference_doctype == "Payment Request":
-				original_user = frappe.session.user
+				# frappe.set_user() mutates frappe.local.session in place (sid -> username, data -> wiped)
+				# instead of fully restoring it, which corrupts the caller's session cache entry at
+				# end-of-request if this runs mid-request for a logged-in user. Snapshot/restore the whole
+				# session dict rather than relying on set_user(original_user) to undo its own side effects.
+				session_backup = dict(frappe.local.session)
 				try:
 					frappe.set_user("Administrator")
 					# Lock the payment request as well
@@ -235,12 +239,13 @@ def _complete_payment_logic(token: str, status: str, request_data: dict) -> None
 						title="Lloyds Connect: Payment Entry Creation Failed",
 					)
 				finally:
-					frappe.set_user(original_user)
+					frappe.local.session.clear()
+					frappe.local.session.update(session_backup)
 
 			elif reference_doctype == "Quotation":
 				# Card-payment flow: Quotation was submitted at checkout time.
 				# Now that gateway confirmed payment, create and submit the Sales Order.
-				original_user = frappe.session.user
+				session_backup = dict(frappe.local.session)
 				try:
 					frappe.set_user("Administrator")
 					_create_so_and_payment_from_quotation(reference_docname, request_data)
@@ -250,7 +255,8 @@ def _complete_payment_logic(token: str, status: str, request_data: dict) -> None
 						title="Lloyds Connect: Card Payment SO Creation Failed",
 					)
 				finally:
-					frappe.set_user(original_user)
+					frappe.local.session.clear()
+					frappe.local.session.update(session_backup)
 
 			else:
 				frappe.get_doc(reference_doctype, reference_docname).run_method(

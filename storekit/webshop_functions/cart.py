@@ -760,15 +760,38 @@ def update_address_with_customer(address_name, customer_name):
 
 def create_contact(doc, customer_name):
 	"""
-	Create a Contact and link it to the specified Customer.
+	Link the Customer to the Contact for this email, creating one only if none exists.
+
+	frappe.core.doctype.user.user.create_contact() already auto-creates a bare Contact (no
+	Customer link) for every new User, right when create_user() above calls user.insert(). Blindly
+	inserting another Contact here left two Contact rows sharing the same email - one linked to the
+	new Customer, one not - and get_contact_name() (used by get_party() on every later visit) has no
+	defined order between them. Landing on the unlinked one made get_party() believe this customer
+	had no Customer/address history yet, creating a second, empty Customer each time and hiding the
+	billing address the signup itself had just saved. Reuse whatever Contact already exists for this
+	email instead of creating a second one.
 
 	Args:
 	    doc (dict): The contact details (full name, email, and phone).
 	    customer_name (str): The name of the customer to link the contact to.
 
 	Returns:
-	    frappe.model.document.Document: The created Contact document.
+	    frappe.model.document.Document: The (possibly pre-existing) Contact document.
 	"""
+	email = doc.get("email_id")
+	existing_name = email and get_contact_name(email)
+
+	if existing_name:
+		contact_doc = frappe.get_doc("Contact", existing_name)
+		if not any(
+			link.link_doctype == "Customer" and link.link_name == customer_name
+			for link in contact_doc.links
+		):
+			contact_doc.append("links", {"link_doctype": "Customer", "link_name": customer_name})
+			contact_doc.flags.ignore_mandatory = True
+			contact_doc.save(ignore_permissions=True)
+		return contact_doc
+
 	contact_doc = frappe.get_doc(
 		{
 			"doctype": "Contact",
@@ -776,7 +799,7 @@ def create_contact(doc, customer_name):
 			"last_name": doc.get("last_name"),
 			"company_name": doc.get("company_name"),
 			"is_primary_contact": 1,
-			"email_ids": [{"email_id": doc.get("email_id"), "is_primary": 1}],
+			"email_ids": [{"email_id": email, "is_primary": 1}],
 			"phone_nos": [{"phone": doc.get("phone"), "is_primary_phone": 1, "is_primary_mobile_no": 1}],
 			"links": [{"link_doctype": "Customer", "link_name": customer_name}],
 		}

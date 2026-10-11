@@ -112,10 +112,17 @@ def _print_file_url(att: dict, order: str) -> str | None:
 def _render_pdf(doctype: str, name: str, print_format: str | None) -> bytes | None:
 	"""Render as the system user: the order is often placed by a website customer, who may not be allowed to
 	print a Sales Order. Standard render first; if the PDF engine cannot fetch the print stylesheet, retry
-	without it (the print format carries its own inline CSS). Returns None when both fail."""
+	without it (the print format carries its own inline CSS). Returns None when both fail.
+
+	frappe.set_user() mutates frappe.local.session in place (session["sid"] -> the username,
+	session["data"] -> wiped) instead of fully restoring it afterwards. Called mid-request like this,
+	that corrupts the real customer's session cache entry at end-of-request and silently logs them out
+	on their next request. Snapshot/restore the whole session dict instead of relying on set_user(user)
+	to undo its own side effects.
+	"""
 	from frappe.utils.pdf import get_pdf
 
-	user = frappe.session.user
+	session_backup = dict(frappe.local.session)
 	frappe.set_user("Administrator")
 	try:
 		try:
@@ -128,7 +135,8 @@ def _render_pdf(doctype: str, name: str, print_format: str | None) -> bytes | No
 		frappe.log_error(title=f"Order PDF attachment failed for {name}")
 		return None
 	finally:
-		frappe.set_user(user)
+		frappe.local.session.clear()
+		frappe.local.session.update(session_backup)
 
 
 def repair_stuck_order_emails():

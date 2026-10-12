@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import _make_sales_order
@@ -9,6 +10,34 @@ from frappe.utils.nestedset import get_root_of
 
 from storekit.api.shipping import calculate_cost
 from storekit.webshop_functions.checkout_auth import user_exists
+
+
+@contextmanager
+def _run_as_system_user():
+	"""
+	Temporarily elevate to Administrator for internal, system-driven quotation work
+	(pricing, tax/shipping calculation, submitting the cart) that must not depend on
+	which Item (or other business doctype) permissions happen to be configured for the
+	current session's role.
+
+	erpnext.stock.get_item_details.get_item_details() calls item.check_permission()
+	directly on a freshly-fetched Item document - a check quotation.flags.ignore_permissions
+	does not reach, since that flag only covers the Quotation's own permission checks, not
+	other doctypes fetched while building it. So whether checkout works at all ends up
+	depending on whatever Item role permissions happen to be configured on a given site: it
+	worked in dev (where some role grants Item read) and failed in production with
+	"PermissionError: No permission for Item" the moment a brand new Website User, with no
+	such role, tried to check out as a guest.
+
+	Returns:
+	    None
+	"""
+	current_user = frappe.session.user
+	frappe.set_user("Administrator")
+	try:
+		yield
+	finally:
+		frappe.set_user(current_user)
 
 
 def _resolve_contact_for_email(email):
@@ -638,109 +667,112 @@ def place_order(doc=None, cart_items=None):
 		if party:
 			contact = create_contact(doc, party.name)
 			quotation = _get_cart_quotation(party=party, contact=contact)
-			# create_user() above already logged this guest in as the new Website User, who has
-			# no role granting them read on Item - so set_missing_values/calculate_taxes_and_totals
-			# below (which look up Item details) must not run under that user's own permissions.
 			quotation.flags.ignore_permissions = True
 
-			# Items must be on the quotation before any address update saves it:
-			# saving a brand-new item-less quotation fails in ERPNext (grand total is None).
-			cart_items = frappe.parse_json(cart_items) if cart_items else []
-			if cart_items:
-				add_items_to_quotation(quotation, cart_items)
+			# create_user() above already logged this guest in as the new Website User, who may
+			# have no role granting them read on Item - see _run_as_system_user() for why that
+			# breaks set_missing_values/calculate_taxes_and_totals below.
+			with _run_as_system_user():
+				# Items must be on the quotation before any address update saves it:
+				# saving a brand-new item-less quotation fails in ERPNext (grand total is None).
+				cart_items = frappe.parse_json(cart_items) if cart_items else []
+				if cart_items:
+					add_items_to_quotation(quotation, cart_items)
 
-			if address:
-				update_address_with_customer(address.name, party.name)
-				update_cart_address(
-					address_type=address.address_type, address_name=address.name, quotation=quotation
-				)
-
-			if not doc.get("deliver_same"):
-				required_fields = [
-					"deliver_address_line_1",
-					"deliver_town",
-					"deliver_country",
-					"deliver_postcode",
-					"phone",
-					"email_id",
-				]
-
-				# Ensure required fields are available
-				missing_fields = [field for field in required_fields if not doc.get(field)]
-				if missing_fields:
-					frappe.throw(
-						_("Missing required fields for delivery address: {0}").format(
-							", ".join(missing_fields)
-						)
-					)
-
-				deliver_address_json = {
-					"address_title": address_title,
-					"address_line1": doc.get("deliver_address_line_1", ""),
-					"address_line2": doc.get("deliver_address_line_2", ""),
-					"city": doc.get("deliver_town", ""),
-					"country": doc.get("deliver_country", ""),
-					"pincode": doc.get("deliver_postcode", ""),
-					"state": doc.get("deliver_state", ""),
-					"address_type": "Shipping",
-					"phone": doc.get("phone", ""),
-					"email_id": doc.get("email_id", ""),
-				}
-
-				deliver_address = add_new_address(frappe.as_json(deliver_address_json))
-
-				if deliver_address:
-					update_address_with_customer(deliver_address.name, party.name)
+				if address:
+					update_address_with_customer(address.name, party.name)
 					update_cart_address(
-						address_type=deliver_address.address_type,
-						address_name=deliver_address.name,
-						quotation=quotation,
+						address_type=address.address_type, address_name=address.name, quotation=quotation
 					)
-				else:
-					frappe.throw(_("Failed to create the delivery address."))
+
+				if not doc.get("deliver_same"):
+					required_fields = [
+						"deliver_address_line_1",
+						"deliver_town",
+						"deliver_country",
+						"deliver_postcode",
+						"phone",
+						"email_id",
+					]
+
+					# Ensure required fields are available
+					missing_fields = [field for field in required_fields if not doc.get(field)]
+					if missing_fields:
+						frappe.throw(
+							_("Missing required fields for delivery address: {0}").format(
+								", ".join(missing_fields)
+							)
+						)
+
+					deliver_address_json = {
+						"address_title": address_title,
+						"address_line1": doc.get("deliver_address_line_1", ""),
+						"address_line2": doc.get("deliver_address_line_2", ""),
+						"city": doc.get("deliver_town", ""),
+						"country": doc.get("deliver_country", ""),
+						"pincode": doc.get("deliver_postcode", ""),
+						"state": doc.get("deliver_state", ""),
+						"address_type": "Shipping",
+						"phone": doc.get("phone", ""),
+						"email_id": doc.get("email_id", ""),
+					}
+
+					deliver_address = add_new_address(frappe.as_json(deliver_address_json))
+
+					if deliver_address:
+						update_address_with_customer(deliver_address.name, party.name)
+						update_cart_address(
+							address_type=deliver_address.address_type,
+							address_name=deliver_address.name,
+							quotation=quotation,
+						)
+					else:
+						frappe.throw(_("Failed to create the delivery address."))
 
 	else:
 		quotation = _get_cart_quotation()
 		quotation.flags.ignore_permissions = True
 		party = get_party()
-		if doc.get("deliver_same"):
-			update_cart_address("Billing", doc.get("billing_address"), quotation)
-			update_cart_address("Shipping", doc.get("billing_address"), quotation)
-		else:
-			update_cart_address("Billing", doc.get("billing_address"), quotation)
-			update_cart_address("Shipping", doc.get("shipping_address"), quotation)
+		with _run_as_system_user():
+			if doc.get("deliver_same"):
+				update_cart_address("Billing", doc.get("billing_address"), quotation)
+				update_cart_address("Shipping", doc.get("billing_address"), quotation)
+			else:
+				update_cart_address("Billing", doc.get("billing_address"), quotation)
+				update_cart_address("Shipping", doc.get("shipping_address"), quotation)
 
 	if not quotation:
 		frappe.throw(_("Quotation could not be created"))
 
-	set_price_list_and_rate(quotation)
-	# Use custom calculate_taxes_and_totals function to apply both taxes and shipping
-	calculate_taxes_and_totals(quotation=quotation)
-	# _apply_shipping_rule(party, quotation)
+	with _run_as_system_user():
+		set_price_list_and_rate(quotation)
+		# Use custom calculate_taxes_and_totals function to apply both taxes and shipping
+		calculate_taxes_and_totals(quotation=quotation)
+		# _apply_shipping_rule(party, quotation)
 
-	quotation.flags.ignore_permissions = True
-	quotation.submit()
+		quotation.flags.ignore_permissions = True
+		quotation.submit()
 
-	# Card payment: SO is created AFTER payment is confirmed by the gateway.
-	# Return now so the frontend can redirect to the payment page.
-	if doc.get("mode_of_payment") == "Pay with Card":
-		return {
-			"quotation": quotation.name,
-			"pending_card_payment": True,
-		}
+		# Card payment: SO is created AFTER payment is confirmed by the gateway.
+		# Return now so the frontend can redirect to the payment page.
+		if doc.get("mode_of_payment") == "Pay with Card":
+			return {
+				"quotation": quotation.name,
+				"pending_card_payment": True,
+			}
 
-	if quotation.quotation_to == "Lead" and quotation.party_name:
-		frappe.defaults.set_user_default("company", quotation.company)
+		if quotation.quotation_to == "Lead" and quotation.party_name:
+			frappe.defaults.set_user_default("company", quotation.company)
 
-	if not (quotation.shipping_address_name or quotation.customer_address):
-		frappe.throw(_("Set Shipping Address or Billing Address"))
+		if not (quotation.shipping_address_name or quotation.customer_address):
+			frappe.throw(_("Set Shipping Address or Billing Address"))
 
-	sales_order = frappe.get_doc(_make_sales_order(quotation.name, ignore_permissions=True))
-	sales_order.payment_schedule = []
+		sales_order = frappe.get_doc(_make_sales_order(quotation.name, ignore_permissions=True))
+		sales_order.payment_schedule = []
 
-	sales_order.flags.ignore_permissions = True
-	sales_order.insert()
-	sales_order.submit()
+		sales_order.flags.ignore_permissions = True
+		sales_order.insert()
+		sales_order.submit()
 
 	if hasattr(frappe.local, "cookie_manager"):
 		frappe.local.cookie_manager.delete_cookie("cart_count")

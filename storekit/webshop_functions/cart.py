@@ -29,15 +29,32 @@ def _run_as_system_user():
 	"PermissionError: No permission for Item" the moment a brand new Website User, with no
 	such role, tried to check out as a guest.
 
+	Deliberately does NOT use frappe.set_user() to switch back: that call also resets
+	frappe.local.session.sid and .data, and frappe.local.session is the very object this
+	request's real session gets persisted from at request end (frappe/sessions.py
+	Session.update()). Calling set_user() mid-request was clobbering the logged-in
+	customer's own session cache with their email in place of their real sid, so their
+	very next request (e.g. clicking through to /profile) couldn't resume the session and
+	silently landed back on Guest ("Not Permitted - Please log in"), despite checkout
+	having actually logged them in. Only the effective user is swapped here - the real
+	session's sid/data are left untouched.
+
 	Returns:
 	    None
 	"""
-	current_user = frappe.session.user
-	frappe.set_user("Administrator")
+	original_user = frappe.session.user
+
+	def _switch_to(user):
+		frappe.local.session.user = user
+		frappe.local.cache = {}
+		frappe.local.role_permissions = {}
+		frappe.local.user_perms = None
+
+	_switch_to("Administrator")
 	try:
 		yield
 	finally:
-		frappe.set_user(current_user)
+		_switch_to(original_user)
 
 
 def _resolve_contact_for_email(email):
@@ -220,11 +237,20 @@ def update_cart(item_code, qty, additional_notes=None, cart_items=None):
 
 	quotation.flags.ignore_permissions = True
 	quotation.payment_schedule = []
-	if not empty_card:
-		quotation.save(ignore_version=True)
-	else:
-		quotation.delete()
-		quotation = None
+	with _run_as_system_user():
+		if not empty_card:
+			# Force a fresh price list lookup on every save. ERPNext's own item-detail
+			# merge (accounts_controller.set_missing_item_details) only re-fills rate/
+			# price_list_rate when the field is None - never when it's an explicit 0 -
+			# so a row that ever got saved at 0 (e.g. during the Item PermissionError
+			# this cart used to throw for new Website Users) stays stuck at £0.00
+			# forever, on every later qty change, with no way to self-heal.
+			for quotation_item in quotation.items:
+				quotation_item.price_list_rate = quotation_item.rate = quotation_item.amount = None
+			quotation.save(ignore_version=True)
+		else:
+			quotation.delete()
+			quotation = None
 
 	set_cart_count(quotation=quotation)
 
@@ -478,9 +504,15 @@ def update_cart_qty(item_code, qty, action, cart_items=None, quotation=None):
 				quotation.append("items", {"item_code": item_code, "qty": int(qty)})
 
 		if len(quotation.get("items")) == 0:
-			quotation.delete(ignore_permissions=True)
+			with _run_as_system_user():
+				quotation.delete(ignore_permissions=True)
 		else:
-			quotation.save(ignore_version=True, ignore_permissions=True)
+			# Same Item-permission issue as update_cart: a newly appended row (action
+			# "add" on an item not yet in the cart) drives validate()/set_missing_values
+			# through get_item_details(), which checks read permission on Item directly -
+			# a check a Website User with no such role fails outside Administrator.
+			with _run_as_system_user():
+				quotation.save(ignore_version=True, ignore_permissions=True)
 			frappe.db.commit()
 			cart_items = quotation.items
 
@@ -1094,14 +1126,10 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 	total_excluded_tax = total_included_tax = 0
 	order_summary = []
 	default_currency = frappe.db.get_single_value("Global Defaults", "default_currency")
-	tax_template_name = None
 	if quotation:
-		if quotation.tax_category:
-			tax_template_name = quotation.taxes_and_charges or frappe.db.get_value(
-				"Sales Taxes and Charges Template", {"is_default": 1}
-			)
-		else:
-			tax_template_name = None
+		tax_template_name = quotation.taxes_and_charges or frappe.db.get_value(
+			"Sales Taxes and Charges Template", {"is_default": 1}
+		)
 	else:
 		tax_template_name = frappe.db.get_value("Sales Taxes and Charges Template", {"is_default": 1})
 
@@ -1197,8 +1225,9 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 		# Apply custom shipping rule logic (appends two more rows if rule exists)
 		_apply_shipping_rule(quotation=quotation)
 
-		quotation.run_method("calculate_taxes_and_totals")
-		quotation.save(ignore_permissions=True, ignore_version=True)
+		with _run_as_system_user():
+			quotation.run_method("calculate_taxes_and_totals")
+			quotation.save(ignore_permissions=True, ignore_version=True)
 		frappe.db.commit()
 
 		total_price = flt(quotation.get("total"))

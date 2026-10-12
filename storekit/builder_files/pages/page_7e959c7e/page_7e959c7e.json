@@ -8034,9 +8034,12 @@
  "client_scripts": [
   {
    "builder_script": "contact-us.js"
+  },
+  {
+   "builder_script": "cart-drawer.js"
   }
  ],
- "creation": "2026-09-29 12:08:19.391829",
+ "creation": "2026-10-12 08:31:12.548155",
  "disable_indexing": 0,
  "docstatus": 0,
  "doctype": "Builder Page",
@@ -8046,7 +8049,7 @@
  "idx": 0,
  "is_standard": 1,
  "is_template": 0,
- "modified": "2026-09-30 07:28:25.664581",
+ "modified": "2026-10-12 11:56:00.131639",
  "modified_by": "Administrator",
  "name": "page-7e959c7e",
  "owner": "Administrator",

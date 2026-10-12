@@ -7682,8 +7682,12 @@
    "visibilityCondition": null
   }
  ],
- "client_scripts": [],
- "creation": "2026-09-29 12:08:19.297170",
+ "client_scripts": [
+  {
+   "builder_script": "cart-drawer.js"
+  }
+ ],
+ "creation": "2026-10-12 08:31:12.397598",
  "disable_indexing": 0,
  "docstatus": 0,
  "doctype": "Builder Page",
@@ -7693,7 +7697,7 @@
  "idx": 0,
  "is_standard": 1,
  "is_template": 0,
- "modified": "2026-09-30 07:28:25.736047",
+ "modified": "2026-10-12 11:56:00.092460",
  "modified_by": "Administrator",
  "name": "page-7a878609",
  "owner": "Administrator",

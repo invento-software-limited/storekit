@@ -638,6 +638,10 @@ def place_order(doc=None, cart_items=None):
 		if party:
 			contact = create_contact(doc, party.name)
 			quotation = _get_cart_quotation(party=party, contact=contact)
+			# create_user() above already logged this guest in as the new Website User, who has
+			# no role granting them read on Item - so set_missing_values/calculate_taxes_and_totals
+			# below (which look up Item details) must not run under that user's own permissions.
+			quotation.flags.ignore_permissions = True
 
 			# Items must be on the quotation before any address update saves it:
 			# saving a brand-new item-less quotation fails in ERPNext (grand total is None).
@@ -697,6 +701,7 @@ def place_order(doc=None, cart_items=None):
 
 	else:
 		quotation = _get_cart_quotation()
+		quotation.flags.ignore_permissions = True
 		party = get_party()
 		if doc.get("deliver_same"):
 			update_cart_address("Billing", doc.get("billing_address"), quotation)

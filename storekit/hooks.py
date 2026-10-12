@@ -10,6 +10,17 @@ app_logo_url = "/assets/storekit/images/storekit-logo.svg"
 
 required_apps = ["erpnext", "builder"]
 
+# Apps
+# ------------------
+add_to_apps_screen = [
+	{
+		"name": "storekit",
+		"logo": "/assets/storekit/images/storekit-logo.svg",
+		"title": "StoreKit",
+		"route": "/desk/storekit/storekit-overview",
+	}
+]
+
 # Includes in <head>
 # ------------------
 

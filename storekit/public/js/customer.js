@@ -22,9 +22,4 @@ frappe.ui.form.on("Customer", {
 			}).addClass("btn-primary");
 		}
 	},
-	validate: function (frm) {
-		if (!frm.doc.tax_category) {
-			frappe.throw("Error: Value missing for Customer: Tax Category");
-		}
-	},
 });

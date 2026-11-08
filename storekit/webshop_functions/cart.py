@@ -11,6 +11,8 @@ from frappe.utils.nestedset import get_root_of
 from storekit.api.shipping import calculate_cost
 from storekit.webshop_functions.checkout_auth import user_exists
 
+PRODUCT_IMAGE_PLACEHOLDER = "/assets/storekit/builder_assets/product-placeholder.svg"
+
 
 @contextmanager
 def _run_as_system_user():
@@ -402,7 +404,7 @@ def get_cart_items_for_logged_in_user(quotation, default_currency):
 			"item_name": item.item_name,
 			"item_code": item.item_code,
 			"qty": item.qty,
-			"image": item.image if item.image else "",
+			"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 			"rate": frappe.utils.fmt_money(item.rate, currency=default_currency),
 			"amount": frappe.utils.fmt_money(item.amount, currency=default_currency),
 		}
@@ -428,7 +430,7 @@ def get_cart_items_for_guest_user(default_currency):
 			"item_name": item_details.item_name,
 			"item_code": item_details.item_code,
 			"qty": item.get("qty"),
-			"image": item_details.image if item_details.image else "",
+			"image": item_details.image or PRODUCT_IMAGE_PLACEHOLDER,
 			"rate": frappe.utils.fmt_money(item.get("price", 0), currency=default_currency),
 			"amount": frappe.utils.fmt_money(
 				item.get("price", 0) * item.get("qty", 0), currency=default_currency
@@ -817,7 +819,7 @@ def place_order(doc=None, cart_items=None):
 			{
 				"item_code": item.item_code,
 				"item_name": item.item_name,
-				"image": item.image or "",
+				"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 				"qty": item.qty,
 				"amount": frappe.utils.fmt_money(item.amount, currency=currency),
 			}

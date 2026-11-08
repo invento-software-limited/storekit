@@ -218,10 +218,10 @@
  {
   "docstatus": 0,
   "doctype": "Builder Client Script",
-  "modified": "2026-06-03 17:58:23.866952",
+  "modified": "2026-11-05 05:39:22.219121",
   "name": "CSS-c1e44",
-  "public_url": "/files/page_styles/CSS-c1e44-6b2a8b08af.css?v=646c57f970",
-  "script": "/* Write your CSS here */\n.logo-slider {\n    overflow: hidden;\n    width: 100%;\n    position: relative;\n}\n\n.logo-track {\n    display: flex;\n    align-items: center;\n    gap: 40px;\n    width: max-content;\n}\n\n.logo-track .logo-item {\n    flex-shrink: 0;\n}\n.testimonial-slider {\n    overflow: hidden;\n    width: 100%;\n    position: relative;\n}\n\n.testimonial-track {\n    display: flex;\n    flex-wrap: nowrap;\n    transition: transform 0.5s ease;\n}\n\n.testimonial-slide {\n    flex: 0 0 100%;\n    width: 100%;\n    box-sizing: border-box;\n}\n\n.testimonial-prev,\n.testimonial-next {\n    cursor: pointer;\n}",
+  "public_url": "/files/page_styles/CSS-c1e44-6b2a8b08af.css?v=683f5630d3",
+  "script": "/* Write your CSS here */\n.logo-slider {\n    overflow: hidden;\n    width: 100%;\n    position: relative;\n}\n\n.logo-track {\n    display: flex;\n    align-items: center;\n    gap: 40px;\n    width: max-content;\n}\n\n.logo-track .logo-item {\n    flex-shrink: 0;\n}\n.testimonial-slider {\n    overflow: hidden;\n    width: 100%;\n    position: relative;\n}\n\n.testimonial-track {\n    display: flex;\n    flex-wrap: nowrap;\n    transition: transform 0.5s ease;\n}\n\n.testimonial-slide {\n    flex: 0 0 100%;\n    width: 100%;\n    box-sizing: border-box;\n}\n\n.testimonial-prev,\n.testimonial-next {\n    cursor: pointer;\n}\n\n/* crisp-graphics:start */\n/* once revealed, drop the 3D layer so the browser redraws these at full resolution */\n.crisp-graphic.fade-3d.in {\n    will-change: auto;\n    transform: none;\n    transform-style: flat;\n    backface-visibility: visible;\n}\n/* crisp-graphics:end */\n",
   "script_type": "CSS"
  },
  {

@@ -1,6 +1,7 @@
 import frappe
 from frappe.utils import flt
 
+from storekit.api.often_purchased import get_often_purchased_section
 from storekit.webshop_functions.items import ProductQuery
 
 STAR_PATHS = [
@@ -147,6 +148,7 @@ def get_item_details_by_route(route):
 			r["route"] = r.get("custom_route") or (f"/shop/{r.item_code}" if r.get("item_code") else "#")
 
 		item_dict["related_items"] = related_items[:4]
+		item_dict["often_purchased"] = get_often_purchased_section(item.name, pq)
 
 		return item_dict
 

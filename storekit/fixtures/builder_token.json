@@ -137,11 +137,11 @@
   "doctype": "Builder Token",
   "group": null,
   "is_standard": 0,
-  "modified": "2026-10-12 08:31:27.617569",
-  "name": "gray-500",
-  "token_name": "gray-500",
+  "modified": "2026-10-12 12:45:38.239732",
+  "name": "gray-50",
+  "token_name": "gray-50",
   "type": "Color",
-  "value": "#999999"
+  "value": "#F8F8F8"
  },
  {
   "dark_value": null,
@@ -149,31 +149,7 @@
   "doctype": "Builder Token",
   "group": null,
   "is_standard": 0,
-  "modified": "2026-10-12 08:31:27.623391",
-  "name": "gray-100",
-  "token_name": "gray-100",
-  "type": "Color",
-  "value": "#F3F3F3"
- },
- {
-  "dark_value": null,
-  "docstatus": 0,
-  "doctype": "Builder Token",
-  "group": null,
-  "is_standard": 0,
-  "modified": "2026-10-12 08:31:27.630773",
-  "name": "gray-800",
-  "token_name": "gray-800",
-  "type": "Color",
-  "value": "#383838"
- },
- {
-  "dark_value": null,
-  "docstatus": 0,
-  "doctype": "Builder Token",
-  "group": null,
-  "is_standard": 0,
-  "modified": "2026-10-12 08:31:27.637123",
+  "modified": "2026-10-12 12:45:38.246342",
   "name": "gray-700",
   "token_name": "gray-700",
   "type": "Color",
@@ -185,10 +161,34 @@
   "doctype": "Builder Token",
   "group": null,
   "is_standard": 0,
-  "modified": "2026-10-12 08:31:27.642809",
-  "name": "gray-50",
-  "token_name": "gray-50",
+  "modified": "2026-10-12 12:45:38.252060",
+  "name": "gray-100",
+  "token_name": "gray-100",
   "type": "Color",
-  "value": "#F8F8F8"
+  "value": "#F3F3F3"
+ },
+ {
+  "dark_value": null,
+  "docstatus": 0,
+  "doctype": "Builder Token",
+  "group": null,
+  "is_standard": 0,
+  "modified": "2026-10-12 12:45:38.257727",
+  "name": "gray-500",
+  "token_name": "gray-500",
+  "type": "Color",
+  "value": "#999999"
+ },
+ {
+  "dark_value": null,
+  "docstatus": 0,
+  "doctype": "Builder Token",
+  "group": null,
+  "is_standard": 0,
+  "modified": "2026-10-12 12:45:38.263396",
+  "name": "gray-800",
+  "token_name": "gray-800",
+  "type": "Color",
+  "value": "#383838"
  }
 ]

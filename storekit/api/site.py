@@ -1,4 +1,5 @@
 import frappe
+from frappe.utils import fmt_money
 
 from storekit.webshop_functions.cart import PRODUCT_IMAGE_PLACEHOLDER
 
@@ -43,15 +44,32 @@ def subscribe_newsletter(email, first_name=None):
 	return {"status": "success", "message": "Thank you for subscribing!"}
 
 
-#: price_range labels shown in the filter dropdown, mapped to (price_start, price_end).
+#: Price filter bands (price_start, price_end) in the site currency. None marks the open top band.
+PRICE_BANDS = [(0, 5_000), (5_000, 20_000), (20_000, 50_000), (50_000, None)]
+
 #: ProductQuery.check_filters only applies the price filter when price_end > 0, so
-#: "Over £100" needs an explicit high ceiling rather than 0/unbounded.
-PRICE_RANGE_MAP = {
-	"under £25": (0, 25),
-	"£25 - £50": (25, 50),
-	"£50 - £100": (50, 100),
-	"over £100": (100, 999_999_999),
-}
+#: the open top band needs an explicit high ceiling rather than 0/unbounded.
+OPEN_PRICE_CEILING = 999_999_999
+
+
+def get_price_ranges():
+	"""Price filter options labelled in the site currency, e.g. "Under ৳ 5,000", mapped to their bounds."""
+	currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+
+	def money(amount):
+		return fmt_money(amount, currency=currency, precision=0)
+
+	ranges = {}
+	for start, end in PRICE_BANDS:
+		if not start:
+			label = f"Under {money(end)}"
+		elif end is None:
+			label = f"Over {money(start)}"
+		else:
+			label = f"{money(start)} - {money(end)}"
+		ranges[label] = (start, end or OPEN_PRICE_CEILING)
+	return ranges
+
 
 #: stock labels shown in the filter dropdown, mapped to ProductQuery stock filter keys
 STOCK_MAP = {
@@ -83,7 +101,10 @@ def get_products(
 
 	start = (page - 1) * page_length
 
-	price_start, price_end = PRICE_RANGE_MAP.get((price_range or "").lower().strip(), (0, 0))
+	price_ranges = get_price_ranges()
+	price_range_map = {label.lower(): bounds for label, bounds in price_ranges.items()}
+	price_start, price_end = price_range_map.get((price_range or "").lower().strip(), (0, 0))
+	currency = frappe.db.get_single_value("Global Defaults", "default_currency")
 	stock_filters = []
 	stock_key = STOCK_MAP.get((stock or "").lower().strip())
 	if stock_key:
@@ -119,7 +140,7 @@ def get_products(
 				"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 				"description": item.description,
 				"price": price,
-				"price_formatted": f"£{price:,.2f}",
+				"price_formatted": fmt_money(price, currency=currency),
 				"stock_code_formatted": f"Stock Code: {item.item_code}",
 				"route": route,
 				"custom_route": route,
@@ -146,4 +167,6 @@ def get_products(
 		"total_pages": total_pages,
 		"current_page": page,
 		"total_products": total_count,
+		# Labels the products page can show in its price filter dropdown.
+		"price_ranges": [{"label": label} for label in price_ranges],
 	}

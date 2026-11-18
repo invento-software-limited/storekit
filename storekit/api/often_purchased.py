@@ -1,5 +1,5 @@
 import frappe
-from frappe.utils import flt
+from frappe.utils import flt, fmt_money
 
 from storekit.webshop_functions.cart import PRODUCT_IMAGE_PLACEHOLDER
 
@@ -62,7 +62,7 @@ class OftenPurchased:
 		)
 
 	def get_rows(self, codes):
-		"""Only published, directly addable, priced items: a £0 upsell can't be sold."""
+		"""Only published, directly addable, priced items: a zero-priced upsell can't be sold."""
 		if not codes:
 			return []
 
@@ -97,4 +97,5 @@ def to_row(item):
 
 
 def format_price(amount):
-	return f"£{amount:,.2f}"
+	currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+	return fmt_money(amount, currency=currency)

@@ -314,9 +314,17 @@ class ProductQuery:
 		is_stock_item = frappe.db.get_value("Item", item.item_code, "is_stock_item")
 
 		if is_stock_item:
+			# A template holds no stock itself: it is in stock when any of its variants is.
+			item_codes = [item.item_code]
+			if item.get("has_variants"):
+				item_codes = frappe.get_all(
+					"Item", filters={"variant_of": item.item_code, "disabled": 0}, pluck="name"
+				) or [item.item_code]
+
 			# Check stock in all warehouses (permission safe for Guest)
 			actual_qty = frappe.db.sql(
-				"""select sum(actual_qty) from `tabBin` where item_code = %s""", item.item_code
+				"""select sum(actual_qty) from `tabBin` where item_code in %(item_codes)s""",
+				{"item_codes": tuple(item_codes)},
 			)
 			actual_qty = actual_qty[0][0] if actual_qty and actual_qty[0][0] else 0
 			item.in_stock = actual_qty > 0

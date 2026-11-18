@@ -6,14 +6,17 @@ from storekit.order_emails.events import STAFF_ROLES
 from storekit.webshop_functions.cart import place_order as _place_order
 
 COD = "Cash on Delivery"
+#: Offline payment modes the checkout accepts. Anything else (e.g. a card flow) falls back to COD.
+OFFLINE_PAYMENT_MODES = (COD, "Bank Transfer")
 
 
 @frappe.whitelist(allow_guest=True)
 def place_order(doc=None, cart_items=None):
-	"""Hopkins takes Cash on Delivery only: any other payment mode is forced to COD, so no card flow can start."""
+	"""Only offline payment modes are taken: any other payment mode is forced to COD, so no card flow can start."""
 	if doc:
 		doc = frappe.parse_json(doc)
-		doc["mode_of_payment"] = COD
+		if doc.get("mode_of_payment") not in OFFLINE_PAYMENT_MODES:
+			doc["mode_of_payment"] = COD
 	return _place_order(doc=doc, cart_items=cart_items)
 
 

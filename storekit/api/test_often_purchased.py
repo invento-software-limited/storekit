@@ -39,7 +39,8 @@ class TestOftenPurchased(IntegrationTestCase):
 		result = self.build(items, manual=["A"]).get_section()
 		self.assertEqual([row["item_code"] for row in result["items"]], ["MAIN", "A"])
 		self.assertEqual(result["items"][0]["display_name"], "This item: MAIN")
-		self.assertEqual(result["total"], "£12.50")
+		currency = frappe.db.get_single_value("Global Defaults", "default_currency")
+		self.assertEqual(result["total"], frappe.utils.fmt_money(12.5, currency=currency))
 
 	def test_unpriced_recommendation_is_dropped(self):
 		items = [make_item("MAIN"), make_item("FREE", 0), make_item("A")]

@@ -1,6 +1,7 @@
 import json
 from contextlib import contextmanager
 
+import erpnext
 import frappe
 from erpnext.selling.doctype.quotation.quotation import _make_sales_order
 from frappe import _
@@ -666,15 +667,19 @@ def update_cart_address(address_type, address_name, quotation=None):
 		quotation.shipping_address = address_display
 		quotation.customer_address = quotation.customer_address or address_name
 
-	quotation.run_method("calculate_taxes_and_totals")
-	quotation.payment_schedule = []  # prevent set_payment_schedule crash when grand_total is None
-	quotation.save(ignore_permissions=True)
-	# Reload to keep the in-memory `modified` timestamp in sync with the DB.
-	# Without this, a second call to update_cart_address (e.g. billing then shipping
-	# in place_order) will fail Frappe's optimistic lock check with MySQL error 1020
-	# (QueryDeadlockError: "Record has changed since last read").
-	quotation.reload()
-	return calculate_taxes_and_totals(quotation=quotation)
+	# Called straight from the checkout page too, not only from place_order: saving the cart
+	# fetches Item details, which a Website User without Item read may not do (see
+	# _run_as_system_user()).
+	with _run_as_system_user():
+		quotation.run_method("calculate_taxes_and_totals")
+		quotation.payment_schedule = []  # prevent set_payment_schedule crash when grand_total is None
+		quotation.save(ignore_permissions=True)
+		# Reload to keep the in-memory `modified` timestamp in sync with the DB.
+		# Without this, a second call to update_cart_address (e.g. billing then shipping
+		# in place_order) will fail Frappe's optimistic lock check with MySQL error 1020
+		# (QueryDeadlockError: "Record has changed since last read").
+		quotation.reload()
+		return calculate_taxes_and_totals(quotation=quotation)
 
 
 @frappe.whitelist(allow_guest=True)
@@ -803,6 +808,11 @@ def place_order(doc=None, cart_items=None):
 
 		sales_order = frappe.get_doc(_make_sales_order(quotation.name, ignore_permissions=True))
 		sales_order.payment_schedule = []
+		if doc.get("mode_of_payment"):
+			sales_order.custom_payment_method = doc.get("mode_of_payment")
+		# The profile page's order history pairs each cart quotation with its order through this link.
+		if sales_order.meta.has_field("custom_quotation_reference"):
+			sales_order.custom_quotation_reference = quotation.name
 
 		sales_order.flags.ignore_permissions = True
 		sales_order.insert()
@@ -1096,6 +1106,7 @@ def _apply_shipping_rule(party=None, quotation=None):
 			total_weight += flt(weight) * item.qty
 
 		actual_cost = calculate_cost(rule_doc, net_total, total_weight)
+		cost_center = rule_doc.cost_center or erpnext.get_default_cost_center(quotation.company)
 
 		# Row 1: Shipping Cost
 		quotation.append(
@@ -1106,21 +1117,29 @@ def _apply_shipping_rule(party=None, quotation=None):
 				"tax_amount": actual_cost,
 				"base_tax_amount": actual_cost,
 				"description": rule_doc.label,
-				"cost_center": rule_doc.cost_center or "Main - SWF",
+				"cost_center": cost_center,
 			},
 		)
 
-		# Row 2: VAT on Shipping (On Previous Row Total)
-		quotation.append(
-			"taxes",
-			{
-				"charge_type": "On Previous Row Total",
-				"row_id": len(quotation.taxes),
-				"account_head": "VAT - SWF",
-				"description": "VAT",
-				"cost_center": rule_doc.cost_center or "Main - SWF",
-			},
-		)
+		# Row 2: VAT on the shipping cost, at the cart's own VAT rate and account
+		vat_row = _get_cart_vat_row(quotation)
+		if vat_row:
+			quotation.append(
+				"taxes",
+				{
+					"charge_type": "On Previous Row Amount",
+					"row_id": len(quotation.taxes),
+					"account_head": vat_row.account_head,
+					"rate": vat_row.rate,
+					"description": f"VAT on {rule_doc.label}",
+					"cost_center": cost_center,
+				},
+			)
+
+
+def _get_cart_vat_row(quotation):
+	"""The cart's VAT row from its tax template (the first "On Net Total" row), if any."""
+	return next((tax for tax in quotation.get("taxes") if tax.charge_type == "On Net Total"), None)
 
 
 def calculate_taxes_and_totals(quotation=None, cart_items=None):

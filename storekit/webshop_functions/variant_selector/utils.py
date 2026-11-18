@@ -3,7 +3,7 @@ from erpnext.utilities.product import get_price
 from frappe.utils import cint, flt
 
 from storekit.webshop_functions.cart import get_party
-from storekit.webshop_functions.items import _can_see_price
+from storekit.webshop_functions.items import _can_see_price, with_uom
 from storekit.webshop_functions.variant_selector.item_variants_cache import (
 	ItemVariantsCacheManager,
 )
@@ -150,10 +150,9 @@ def get_attributes_and_values(item_code):
 								current_min = rate
 								min_price = rate
 								stock_uom = frappe.db.get_value("Item", item_code, "stock_uom")
-								formatted_price = (
-									frappe.format_value(rate, dict(fieldtype="Currency"), doc=price_details)
-									+ " per "
-									+ stock_uom
+								formatted_price = with_uom(
+									frappe.format_value(rate, dict(fieldtype="Currency"), doc=price_details),
+									stock_uom,
 								)
 								found_price = True
 

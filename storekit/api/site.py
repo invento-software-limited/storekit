@@ -158,7 +158,8 @@ def get_products(
 				"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 				"description": item.description,
 				"price": price,
-				"price_formatted": fmt_money(price, currency=currency),
+				# templates show their cheapest variant
+				"price_formatted": ("From " if item.get("has_variants") else "") + fmt_money(price, currency=currency),
 				"stock_code_formatted": f"Stock Code: {item.item_code}",
 				"route": route,
 				"custom_route": route,

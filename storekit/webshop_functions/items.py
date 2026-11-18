@@ -307,7 +307,7 @@ class ProductQuery:
 						formatted = frappe.format_value(
 							min_price, dict(fieldtype="Currency"), doc=cheapest_variant_details
 						)
-						item.formatted_price = f"Starts at {formatted} per {item.stock_uom}"
+						item.formatted_price = f"From {with_uom(formatted, item.stock_uom)}"
 			else:
 				price_details = get_price(
 					item_code=item.item_code,
@@ -323,7 +323,9 @@ class ProductQuery:
 					item.discount_percent = price_details.get("discount_percentage", 0)
 
 					rate = price_details.get("rate") or price_details.get("price_list_rate")
-					item.formatted_price = f"{frappe.format_value(rate, dict(fieldtype='Currency'), doc=price_details)} per {item.stock_uom}"
+					item.formatted_price = with_uom(
+						frappe.format_value(rate, dict(fieldtype="Currency"), doc=price_details), item.stock_uom
+					)
 
 		is_stock_item = frappe.db.get_value("Item", item.item_code, "is_stock_item")
 
@@ -349,3 +351,14 @@ class ProductQuery:
 		item.route = item.get("custom_route") or (f"/shop/{item.item_code}" if item.get("item_code") else "#")
 
 		return item
+
+
+# Units sold one at a time: "per Nos" adds nothing to the price, so it is left out.
+COUNT_UOMS = {"Nos", "Unit", "Each", "Pcs", "Piece"}
+
+
+def with_uom(formatted_price, uom):
+	"""Return the price with its unit, e.g. "৳ 120.00 per Kg", or the bare price for count units."""
+	if not uom or uom in COUNT_UOMS:
+		return formatted_price
+	return f"{formatted_price} per {uom}"

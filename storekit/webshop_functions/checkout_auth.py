@@ -57,8 +57,9 @@ def merge_cookie_cart():
 		return
 	# The page and the cart drawer read the cart at the same time; only one of them merges,
 	# otherwise a shopper without a saved cart gets two new cart quotations.
-	lock = f"storekit:merge_cart:{frappe.session.user}"
-	if not frappe.cache.set(frappe.cache.make_key(lock), 1, nx=True, ex=15):
+	# a MariaDB named lock, scoped to this site's database; released when the request's connection closes
+	lock = f"{frappe.conf.db_name}:merge_cart:{frappe.session.user}"[:64]
+	if not frappe.db.sql("select get_lock(%s, 0)", lock)[0][0]:
 		return
 	try:
 		_merge_guest_cart(cart_items)

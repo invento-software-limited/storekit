@@ -1,4 +1,5 @@
 import json
+import time
 from contextlib import contextmanager
 
 import erpnext
@@ -689,8 +690,22 @@ def update_cart_address(address_type, address_name, quotation=None):
 	Returns:
 	    None
 	"""
-	if not quotation:
-		quotation = _get_cart_quotation()
+	# The checkout page sends the billing and the shipping update (and a totals refresh) at the
+	# same time, and they all save the cart quotation: retry on a fresh copy when another
+	# request saved it first.
+	for attempt in range(3):
+		quotation = quotation or _get_cart_quotation()
+		try:
+			return set_cart_address(quotation, address_type, address_name)
+		except frappe.TimestampMismatchError:
+			if attempt == 2:
+				raise
+			frappe.db.rollback()
+			quotation = None
+			time.sleep(0.3)
+
+
+def set_cart_address(quotation, address_type, address_name):
 	address_doc = frappe.get_doc("Address", address_name).as_dict()
 	address_display = get_address_display(address_doc)
 

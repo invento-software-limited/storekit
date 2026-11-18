@@ -119,6 +119,10 @@ def get_item_details_by_route(route):
 			if hasattr(item, attr):
 				item_dict[attr] = getattr(item, attr)
 
+		# flags for the product page: templates open the variant picker, stock/sale badges
+		item_dict["no_variants"] = not item.has_variants
+		item_dict["out_of_stock"] = not item_dict.get("in_stock")
+
 		reviews = frappe.get_all(
 			"Customer Review",
 			filters={"item": item_name},
@@ -147,6 +151,7 @@ def get_item_details_by_route(route):
 		for r in related_items:
 			r["route"] = r.get("custom_route") or (f"/shop/{r.item_code}" if r.get("item_code") else "#")
 			r["stock_code_formatted"] = f"Stock Code: {r.item_code}"
+			r["no_variants"] = not r.get("has_variants")
 
 		item_dict["related_items"] = related_items[:4]
 		item_dict["often_purchased"] = get_often_purchased_section(item.name, pq)
@@ -173,8 +178,9 @@ def submit_review(item, rating, review):
 		frappe.throw("Review content is required")
 
 	rating = flt(rating)
+	# the form sends the star count as a fraction (1 star = 0.2)
 	if not (rating >= 0.1 and rating <= 1):
-		frappe.throw("Rating must be between 1 and 5")
+		frappe.throw("Please choose a rating from 1 to 5 stars")
 
 	# Check if user already reviewed this item
 	existing_review = frappe.db.exists("Customer Review", {"user": frappe.session.user, "item": item})

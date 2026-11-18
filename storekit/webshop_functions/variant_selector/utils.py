@@ -68,6 +68,13 @@ def get_item_codes_by_attributes(attribute_filters, template_item_code=None):
 	return res
 
 
+def variant_in_stock(item_code):
+	if not frappe.db.get_value("Item", item_code, "is_stock_item"):
+		return True
+	qty = frappe.db.sql("select sum(actual_qty) from `tabBin` where item_code = %s", item_code)
+	return flt(qty[0][0] if qty else 0) > 0
+
+
 @frappe.whitelist(allow_guest=True)
 def get_attributes_and_values(item_code):
 	"""Build a list of attributes and their possible values.
@@ -153,7 +160,14 @@ def get_attributes_and_values(item_code):
 				if not found_price:
 					min_price = 0
 
-				values_list.append({"value": v, "price": min_price, "formatted_price": formatted_price})
+				values_list.append(
+					{
+						"value": v,
+						"price": min_price,
+						"formatted_price": formatted_price,
+						"in_stock": any(variant_in_stock(code) for code in items_with_val),
+					}
+				)
 
 		attr["values"] = values_list
 

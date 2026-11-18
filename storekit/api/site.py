@@ -12,13 +12,14 @@ def submit_inquiry(name, email, company, enquiry_type, country, message):
 			"lead_name": name,
 			"email_id": email,
 			"company_name": company,
-			"country": country,
+			# Lead.country links to Country; free text from the form may not match one
+			"country": country if frappe.db.exists("Country", country) else None,
 		}
 	)
 	doc.insert(ignore_permissions=True)
 
 	# Add note for enquiry type & message
-	doc.add_comment("Comment", text=f"Type: {enquiry_type}\nMessage: {message}")
+	doc.add_comment("Comment", text=f"Type: {enquiry_type}\nCountry: {country}\nMessage: {message}")
 	return {"status": "success"}
 
 
@@ -75,6 +76,21 @@ def get_price_ranges():
 STOCK_MAP = {
 	"in stock": "in_stock",
 	"out of stock": "on_backorder",
+	"on sale": "on_sale",
+}
+SORT_MAP = {
+	"price: low to high": "price_asc",
+	"price_low_high": "price_asc",
+	"price_asc": "price_asc",
+	"price: high to low": "price_desc",
+	"price_high_low": "price_desc",
+	"price_desc": "price_desc",
+	"name: a to z": "name_asc",
+	"name_a_z": "name_asc",
+	"name_asc": "name_asc",
+	"name: z to a": "name_desc",
+	"name_z_a": "name_desc",
+	"name_desc": "name_desc",
 }
 
 
@@ -118,6 +134,8 @@ def get_products(
 				"price_start": price_start,
 				"price_end": price_end,
 				"stock": stock_filters,
+				# sorted before paging, so page 2 continues the order of page 1
+				"sort": SORT_MAP.get((sort_by or "").lower().strip()),
 			},
 			search_term=search,
 			start=start,
@@ -144,20 +162,11 @@ def get_products(
 				"stock_code_formatted": f"Stock Code: {item.item_code}",
 				"route": route,
 				"custom_route": route,
+				# product cards link templates to the variant picker instead of adding them
+				"has_variants": item.get("has_variants"),
+				"no_variants": not item.get("has_variants"),
 			}
 		)
-
-	# Handle sort_by filter
-	if sort_by:
-		sort_key = sort_by.lower().strip()
-		if sort_key in ["price: low to high", "price_low_high", "price_asc"]:
-			products.sort(key=lambda x: x["price"])
-		elif sort_key in ["price: high to low", "price_high_low", "price_desc"]:
-			products.sort(key=lambda x: x["price"], reverse=True)
-		elif sort_key in ["name: a to z", "name_a_z", "name_asc"]:
-			products.sort(key=lambda x: (x["item_name"] or "").lower())
-		elif sort_key in ["name: z to a", "name_z_a", "name_desc"]:
-			products.sort(key=lambda x: (x["item_name"] or "").lower(), reverse=True)
 
 	total_count = res.get("items_count", 0)
 	total_pages = math.ceil(total_count / page_length) if total_count else 1

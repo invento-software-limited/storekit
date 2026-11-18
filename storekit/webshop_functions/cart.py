@@ -191,6 +191,8 @@ def update_cart(item_code, qty, additional_notes=None, cart_items=None):
 
 	if cart_items is None:
 		cart_items = []
+	if flt(qty) > 0:
+		validate_shop_item(item_code)
 	if frappe.session.user == "Guest":
 		"""Updates the cart stored in cookies for guest users"""
 
@@ -218,7 +220,7 @@ def update_cart(item_code, qty, additional_notes=None, cart_items=None):
 	empty_card = False
 	qty = flt(qty)
 	if qty == 0:
-		quotation_items = quotation.get("items", {"item_code": ["!=", item_code]})
+		quotation_items = [row for row in quotation.items if row.item_code != item_code]
 		if quotation_items:
 			quotation.set("items", quotation_items)
 		else:
@@ -259,7 +261,27 @@ def update_cart(item_code, qty, additional_notes=None, cart_items=None):
 
 	set_cart_count(quotation=quotation)
 
-	return {"name": quotation.name}
+	# removing the last item deletes the cart quotation
+	return {"name": quotation.name if quotation else None}
+
+
+def validate_shop_item(item_code):
+	"""Only published, sellable items (or variants of a published template) go into a cart."""
+	item = frappe.db.get_value(
+		"Item",
+		item_code,
+		["item_name", "disabled", "has_variants", "variant_of", "custom_publish_on_website"],
+		as_dict=True,
+	)
+	if not item or item.disabled:
+		frappe.throw(_("This product is not available."))
+	if item.has_variants:
+		frappe.throw(_("Please choose an option for {0} first.").format(item.item_name))
+	published = item.custom_publish_on_website or (
+		item.variant_of and frappe.db.get_value("Item", item.variant_of, "custom_publish_on_website")
+	)
+	if not published:
+		frappe.throw(_("This product is not available."))
 
 
 def get_party(user=None):
@@ -382,6 +404,9 @@ def get_cart_items(quotation=None):
 
 	if frappe.session.user != "Guest":
 		if not quotation:
+			from storekit.webshop_functions.checkout_auth import merge_cookie_cart
+
+			merge_cookie_cart()
 			quotation = _get_cart_quotation()
 			set_cart_count(quotation=quotation)
 		return get_cart_items_for_logged_in_user(quotation, default_currency)
@@ -1267,6 +1292,12 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 	}
 
 
+def guest_delivery_postcode():
+	request = getattr(frappe.local, "request", None)
+	postcode = request.cookies.get("delivery_postcode") if request else None
+	return (postcode or "").strip()[:12] or None
+
+
 def _add_guest_shipping_estimate(order_summary, cart_items, total_price, tax_template_taxes, currency):
 	"""
 	Add the shipping rows a guest's order will get to the guest order summary.
@@ -1281,14 +1312,17 @@ def _add_guest_shipping_estimate(order_summary, cart_items, total_price, tax_tem
 	"""
 	cart = get_items_values([(item.get("item_code"), item.get("qty", 1)) for item in cart_items])
 	cart["net_total"] = total_price
-	methods = get_methods_for_cart(cart) if cart_items else []
+	# checkout stores the delivery postcode in a cookie, so the review step shows the rule
+	# place_order() will apply (e.g. Inside Dhaka) instead of the default rule
+	postcode = guest_delivery_postcode()
+	methods = get_methods_for_cart(cart, postcode) if cart_items else []
 	if not methods:
 		return 0
 
 	method = methods[0]
 	shipping = flt(method["cost"])
 	description = method["label"]
-	if cart["is_physical"]:
+	if cart["is_physical"] and not postcode:
 		description = _("{0} (estimate, final cost set by delivery postcode)").format(method["label"])
 	order_summary.append(
 		{

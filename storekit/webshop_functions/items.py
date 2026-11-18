@@ -11,6 +11,15 @@ def _can_see_price():
 	return True
 
 
+def sort_items(items, sort_key):
+	"""Sort product listings in place; sort_key is price_asc, price_desc, name_asc or name_desc."""
+	field, _, direction = (sort_key or "").partition("_")
+	if field == "price":
+		items.sort(key=lambda item: flt(item.get("price_list_rate")), reverse=direction == "desc")
+	elif field == "name":
+		items.sort(key=lambda item: (item.get("item_name") or "").lower(), reverse=direction == "desc")
+
+
 @frappe.whitelist(allow_guest=True)
 def get_filtered_items(filters=None):
 	"""
@@ -98,7 +107,9 @@ class ProductQuery:
 		db_filters = self._build_filters(filters, item_group)
 		or_filters = self._build_or_filters(search_term)
 
-		post_filter_needed = filters.get("price_start") or filters.get("price_end") or filters.get("stock")
+		sort_key = filters.get("sort")
+		# sorting needs every matching item, so it pages in memory like the other post-filters
+		post_filter_needed = filters.get("price_start") or filters.get("price_end") or filters.get("stock") or sort_key
 
 		limit = cint(filters.get("limit") or filters.get("page_length") or self.page_length)
 
@@ -124,6 +135,9 @@ class ProductQuery:
 
 			if not post_filter_needed and len(processed_items) >= limit:
 				break
+
+		if sort_key:
+			sort_items(processed_items, sort_key)
 
 		if post_filter_needed:
 			total_count = len(processed_items)

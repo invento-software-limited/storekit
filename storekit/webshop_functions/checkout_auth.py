@@ -1,5 +1,7 @@
 """Login / existing-account helpers for the checkout page (guests can reach these)."""
 
+from urllib.parse import unquote
+
 import frappe
 from frappe import _
 from frappe.utils import cint
@@ -39,6 +41,25 @@ def checkout_login(email=None, password=None, cart_items=None):
 
 	_merge_guest_cart(cart_items)
 	return {"success": True, "full_name": login_manager.full_name}
+
+
+def merge_cookie_cart():
+	"""A shopper who logged in from any page (e.g. /login) keeps the cart built as a guest.
+
+	Runs on the first cart read after login rather than in on_session_creation: prices
+	fetched while the login request is still building the session came out as 0."""
+	request = getattr(frappe.local, "request", None)
+	# frappe's cookie manager stores the cart as URL-encoded JSON
+	cart_items = unquote(request.cookies.get("cart_items") or "") if request else None
+	if not cart_items or cart_items in ("[]", '""') or frappe.session.user in ("Guest", "Administrator"):
+		return
+	if frappe.get_cached_value("User", frappe.session.user, "user_type") != "Website User":
+		return
+	try:
+		_merge_guest_cart(cart_items)
+	except Exception:
+		# never block a login because of the cart
+		frappe.log_error(title="Login: guest cart merge failed")
 
 
 def _merge_guest_cart(cart_items):

@@ -63,6 +63,8 @@ def merge_cookie_cart():
 		return
 	try:
 		_merge_guest_cart(cart_items)
+		# this runs inside GET cart reads, which frappe does not commit
+		frappe.db.commit()  # nosemgrep
 	except frappe.TimestampMismatchError:
 		frappe.db.rollback()
 	except Exception:
@@ -71,7 +73,12 @@ def merge_cookie_cart():
 
 
 def _merge_guest_cart(cart_items):
-	from storekit.webshop_functions.cart import _get_cart_quotation, _run_as_system_user, set_cart_count
+	from storekit.webshop_functions.cart import (
+		_get_cart_quotation,
+		_run_as_system_user,
+		set_cart_count,
+		set_price_list_and_rate,
+	)
 
 	items = frappe.parse_json(cart_items) if cart_items else []
 	items = [item for item in items if item.get("item_code")]
@@ -102,6 +109,8 @@ def _merge_guest_cart(cart_items):
 		# same reason place_order's own quotation work runs as system user.
 		with _run_as_system_user():
 			quotation.run_method("set_missing_values")
+			# a new cart quotation has no price list yet, which left the merged lines at 0
+			set_price_list_and_rate(quotation)
 			quotation.save(ignore_permissions=True, ignore_version=True)
 
 	frappe.local.cookie_manager.set_cookie("cart_items", [])

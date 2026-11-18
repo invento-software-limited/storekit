@@ -120,3 +120,15 @@ fixtures = [
 	{"doctype": "Webshop Theme", "filters": [["name", "in", WEBSHOP_THEMES]]},
 	"Webshop Settings",
 ]
+
+# Website
+# ------------------
+# Storefront home page (Website Settings > Home Page wins when set) and permanent
+# redirects for the retired "Invento Wood Floor" page routes.
+home_page = "home"
+website_redirects = [
+	{"source": "/contact", "target": "/contact-us"},
+	{"source": "/shop", "target": "/products"},
+	{"source": "/history", "target": "/about-us"},
+	{"source": "/heritage", "target": "/about-us"},
+]

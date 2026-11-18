@@ -9,10 +9,12 @@ from frappe.contacts.doctype.address.address import get_address_display
 from frappe.utils import cint, cstr, flt, get_fullname
 from frappe.utils.nestedset import get_root_of
 
-from storekit.api.shipping import calculate_cost
+from storekit.api.shipping import calculate_cost, get_cart_values, get_items_values, get_methods_for_cart
 from storekit.webshop_functions.checkout_auth import user_exists
 
 PRODUCT_IMAGE_PLACEHOLDER = "/assets/storekit/builder_assets/product-placeholder.svg"
+#: Role every shop user gets: ERPNext expects it on a Customer's portal users.
+SHOP_USER_ROLE = "Customer"
 
 
 @contextmanager
@@ -286,6 +288,8 @@ def get_party(user=None):
 		doc = frappe.get_doc(party_doctype, party)
 		if doc.doctype in ["Customer", "Supplier"]:
 			if not frappe.db.exists("Portal User", {"parent": doc.name, "user": user}):
+				if doc.doctype == "Customer":
+					_ensure_shop_user_role(user)
 				doc.append("portal_users", {"user": user})
 				doc.flags.ignore_permissions = True
 				doc.flags.ignore_mandatory = True
@@ -304,6 +308,7 @@ def get_party(user=None):
 			}
 		)
 
+		_ensure_shop_user_role(user)
 		customer.append("portal_users", {"user": user})
 
 		customer.flags.ignore_mandatory = True
@@ -316,6 +321,16 @@ def get_party(user=None):
 		contact.insert(ignore_permissions=True)
 
 		return customer
+
+
+def _ensure_shop_user_role(user):
+	"""Give a shop user the Customer role before linking them to a Customer as a portal user."""
+	if frappe.db.exists("Has Role", {"parent": user, "parenttype": "User", "role": SHOP_USER_ROLE}):
+		return
+
+	user_doc = frappe.get_doc("User", user)
+	user_doc.flags.ignore_permissions = True
+	user_doc.add_roles(SHOP_USER_ROLE)
 
 
 def set_cart_count(quotation=None, cart_items=None):
@@ -857,6 +872,7 @@ def create_party(doc, user=None):
 	doc.update({"doctype": "Customer"})
 	party = frappe.get_doc(doc)
 	if user:
+		_ensure_shop_user_role(user)
 		party.append("portal_users", {"user": user})
 	party.save(ignore_permissions=True)
 
@@ -1072,21 +1088,18 @@ def get_shipping_rules(quotation=None):
 
 
 def _apply_shipping_rule(party=None, quotation=None):
-	if not quotation.shipping_rule:
-		from storekit.api.shipping import get_shipping_methods
+	cart = get_cart_values(quotation)
+	postcode = (
+		frappe.db.get_value("Address", quotation.shipping_address_name, "pincode")
+		if quotation.shipping_address_name
+		else None
+	)
+	methods = get_methods_for_cart(cart, postcode)
 
-		shipping_address = (
-			frappe.get_doc("Address", quotation.shipping_address_name)
-			if quotation.shipping_address_name
-			else None
-		)
-		postcode = shipping_address.pincode if shipping_address else None
-
-		if postcode:
-			methods = get_shipping_methods(postcode)
-			if methods:
-				# Default to the first one if none selected
-				quotation.shipping_rule = methods[0]["name"]
+	# Keep the customer's choice while it still applies to this cart and address; otherwise use
+	# this cart's default (e.g. digital delivery for a cart with nothing physical in it).
+	if methods and quotation.shipping_rule not in {method["name"] for method in methods}:
+		quotation.shipping_rule = methods[0]["name"]
 
 	if not quotation.shipping_rule:
 		# Fall back to the default rule; with none configured the order simply has no shipping rule.
@@ -1098,14 +1111,7 @@ def _apply_shipping_rule(party=None, quotation=None):
 
 	if quotation.shipping_rule:
 		rule_doc = frappe.get_doc("Shipping Rule", quotation.shipping_rule)
-		net_total = flt(quotation.total)
-
-		total_weight = 0
-		for item in quotation.items:
-			weight = frappe.db.get_value("Item", item.item_code, "weight_per_unit") or 0
-			total_weight += flt(weight) * item.qty
-
-		actual_cost = calculate_cost(rule_doc, net_total, total_weight)
+		actual_cost = calculate_cost(rule_doc, cart["net_total"], cart["total_weight"])
 		cost_center = rule_doc.cost_center or erpnext.get_default_cost_center(quotation.company)
 
 		# Row 1: Shipping Cost
@@ -1143,7 +1149,7 @@ def _get_cart_vat_row(quotation):
 
 
 def calculate_taxes_and_totals(quotation=None, cart_items=None):
-	total_weight = total_price = 0
+	total_price = 0
 	total_excluded_tax = total_included_tax = 0
 	order_summary = []
 	default_currency = frappe.db.get_single_value("Global Defaults", "default_currency")
@@ -1161,44 +1167,14 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 	)
 	tax_template_taxes = tax_template.taxes if tax_template else []
 
-	shipping_rule_data = frappe.get_all(
-		"Shipping Rule",
-		filters={"shipping_rule_type": "Selling", "calculate_based_on": "Net Weight", "disabled": 0},
-		fields=["name"],
-		limit=1,
-	)
-
-	shipping_rule = None
-	if shipping_rule_data:
-		shipping_rule = frappe.get_cached_doc("Shipping Rule", shipping_rule_data[0].name)
-
 	if frappe.session.user == "Guest":
 		if not cart_items:
 			cart_items = []
 
 		for item in cart_items:
-			item_code = item.get("item_code")
 			qty = item.get("qty", 1)
 			price = item.get("price", 0)
-
-			weight_per_unit = frappe.db.get_value("Item", item_code, "weight_per_unit") or 0
-			total_weight += flt(weight_per_unit) * qty
 			total_price += flt(price) * qty
-
-		# Apply shipping rule for guest
-		if shipping_rule:
-			for condition in shipping_rule.conditions:
-				if condition.from_value <= total_weight <= condition.to_value:
-					shipping_charge = condition.shipping_amount
-					total_excluded_tax += shipping_charge
-					order_summary.append(
-						{
-							"description": shipping_rule.name,
-							"tax_amount": frappe.utils.fmt_money(shipping_charge, currency=default_currency),
-							"included_in_price": 0,
-						}
-					)
-					break
 
 		# Apply tax template
 		for tax_row in tax_template_taxes:
@@ -1223,6 +1199,9 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 					}
 				)
 
+		total_excluded_tax += _add_guest_shipping_estimate(
+			order_summary, cart_items, total_price, tax_template_taxes, default_currency
+		)
 		grand_total = total_price + total_excluded_tax
 
 	else:
@@ -1269,17 +1248,15 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 
 			order_summary.append(item)
 
-	# Get available shipping rules for selection
-	from storekit.api.shipping import get_shipping_methods
-
-	shipping_address_name = quotation.shipping_address_name if quotation else None
-	postcode = None
-	if shipping_address_name:
-		postcode = frappe.db.get_value("Address", shipping_address_name, "pincode")
-
+	# Shipping rules the customer can pick for this cart and delivery address
 	available_shipping_rules = []
-	if postcode:
-		available_shipping_rules = get_shipping_methods(postcode)
+	if quotation:
+		postcode = (
+			frappe.db.get_value("Address", quotation.shipping_address_name, "pincode")
+			if quotation.shipping_address_name
+			else None
+		)
+		available_shipping_rules = get_methods_for_cart(get_cart_values(quotation), postcode)
 
 	return {
 		"total_price": frappe.utils.fmt_money(total_price, currency=default_currency),
@@ -1288,6 +1265,51 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 		"available_shipping_rules": available_shipping_rules,
 		"selected_shipping_rule": quotation.shipping_rule if quotation else None,
 	}
+
+
+def _add_guest_shipping_estimate(order_summary, cart_items, total_price, tax_template_taxes, currency):
+	"""
+	Add the shipping rows a guest's order will get to the guest order summary.
+
+	A guest has no delivery address yet, so this uses the cart's default rule: digital
+	delivery for a cart with nothing physical, else the default delivery rule. The postcode
+	given at checkout can still pick a cheaper postcode-specific rule. VAT on shipping
+	is added the way _apply_shipping_rule() adds it to the order.
+
+	Returns:
+	    float: shipping plus VAT on shipping, to add to the grand total.
+	"""
+	cart = get_items_values([(item.get("item_code"), item.get("qty", 1)) for item in cart_items])
+	cart["net_total"] = total_price
+	methods = get_methods_for_cart(cart) if cart_items else []
+	if not methods:
+		return 0
+
+	method = methods[0]
+	shipping = flt(method["cost"])
+	description = method["label"]
+	if cart["is_physical"]:
+		description = _("{0} (estimate, final cost set by delivery postcode)").format(method["label"])
+	order_summary.append(
+		{
+			"description": description,
+			"tax_amount": frappe.utils.fmt_money(shipping, currency=currency),
+			"included_in_price": 0,
+			"is_shipping": True,
+		}
+	)
+
+	vat_row = next((tax for tax in tax_template_taxes if tax.charge_type == "On Net Total"), None)
+	shipping_vat = shipping * flt(vat_row.rate) / 100 if vat_row and shipping else 0
+	if shipping_vat:
+		order_summary.append(
+			{
+				"description": _("VAT on {0}").format(method["label"]),
+				"tax_amount": frappe.utils.fmt_money(shipping_vat, currency=currency),
+				"included_in_price": 0,
+			}
+		)
+	return shipping + shipping_vat
 
 
 def create_user(data):
@@ -1312,6 +1334,9 @@ def create_user(data):
 			"user_type": "Website User",
 			"send_welcome_email": 0,
 			"new_password": password,
+			# Linking the user to their Customer (portal_users) expects this role; without it
+			# ERPNext shows the shopper a "Please add Customer role" alert.
+			"roles": [{"role": SHOP_USER_ROLE}],
 		}
 	)
 

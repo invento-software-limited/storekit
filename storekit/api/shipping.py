@@ -1,13 +1,32 @@
 import frappe
 from frappe.utils import flt, fmt_money
 
+#: Rule label markers. A COLLECTION rule (customer collects) is offered for any cart. A DIGITAL
+#: rule (nothing to ship) is the only rule offered for a cart with no physical item in it.
+COLLECTION_MARK = "COLLECTION"
+DIGITAL_MARK = "DIGITAL"
+
 
 @frappe.whitelist(allow_guest=True)
 def get_shipping_methods(postcode=None):
 	if not postcode:
 		return []
 
-	postcode = postcode.upper().replace(" ", "")
+	return get_methods_for_cart(get_cart_values(), postcode)
+
+
+def get_methods_for_cart(cart, postcode=None):
+	"""
+	Shipping methods for a cart, the cart's default first.
+
+	Args:
+	    cart (dict): net_total, total_weight and is_physical (see get_items_values()).
+	    postcode (str | None): Delivery postcode. Without one, postcode-specific rules are skipped.
+
+	Returns:
+	    list[dict]: name, label, cost and cost_display of each method.
+	"""
+	postcode = (postcode or "").upper().replace(" ", "")
 
 	all_rules = frappe.get_all(
 		"Shipping Rule",
@@ -23,38 +42,47 @@ def get_shipping_methods(postcode=None):
 		],
 	)
 
-	cart_details = get_cart_values()
-	net_total = cart_details.get("net_total", 0)
-	total_weight = cart_details.get("total_weight", 0)
+	net_total = cart.get("net_total", 0)
+	total_weight = cart.get("total_weight", 0)
 	currency = frappe.db.get_single_value("Global Defaults", "default_currency")
 
 	matched_specific_rules = []
 	standard_rules = []
 	collection_rule = None
+	digital_rule = None
 
 	for rule in all_rules:
-		if "COLLECTION" in rule.label.upper():
+		label = rule.label.upper()
+		if DIGITAL_MARK in label:
+			digital_rule = digital_rule or rule
+			continue
+
+		if COLLECTION_MARK in label:
 			collection_rule = rule
 			continue
 
 		if rule.custom_is_postcode_specific:
-			prefixes = [p.strip() for p in (rule.custom_postcode_prefixes or "").split(",")]
-			if any(postcode.startswith(p) for p in prefixes):
+			prefixes = [p.strip() for p in (rule.custom_postcode_prefixes or "").split(",") if p.strip()]
+			if postcode and any(postcode.startswith(p) for p in prefixes):
 				matched_specific_rules.append(rule)
 		else:
 			standard_rules.append(rule)
 
 	available_rules = []
-	if matched_specific_rules:
-		available_rules = [frappe.get_doc("Shipping Rule", r.name) for r in matched_specific_rules]
+	if digital_rule and not cart.get("is_physical"):
+		# Nothing to deliver: no delivery charge.
+		available_rules = [frappe.get_doc("Shipping Rule", digital_rule.name)]
 	else:
-		# Standard rules already have custom_is_default from get_all
-		# Sort to bring default rule to the top
-		standard_rules.sort(key=lambda x: 0 if x.custom_is_default else 1)
-		available_rules = [frappe.get_doc("Shipping Rule", r.name) for r in standard_rules]
+		if matched_specific_rules:
+			available_rules = [frappe.get_doc("Shipping Rule", r.name) for r in matched_specific_rules]
+		else:
+			# Standard rules already have custom_is_default from get_all
+			# Sort to bring default rule to the top
+			standard_rules.sort(key=lambda x: 0 if x.custom_is_default else 1)
+			available_rules = [frappe.get_doc("Shipping Rule", r.name) for r in standard_rules]
 
-	if collection_rule:
-		available_rules.append(frappe.get_doc("Shipping Rule", collection_rule.name))
+		if collection_rule:
+			available_rules.append(frappe.get_doc("Shipping Rule", collection_rule.name))
 
 	methods = []
 	for rule in available_rules:
@@ -125,18 +153,35 @@ def calculate_cost(rule, net_total, total_weight):
 	return applied_cost
 
 
-def get_cart_values():
-	from storekit.webshop_functions.cart import _get_cart_quotation
+def get_cart_values(quotation=None):
+	"""Net total, total weight and is_physical of a cart Quotation (default: the session's cart)."""
+	if not quotation:
+		from storekit.webshop_functions.cart import _get_cart_quotation
 
-	quotation = _get_cart_quotation()
+		quotation = _get_cart_quotation()
 
-	net_total = flt(quotation.total)
+	values = get_items_values([(item.item_code, item.qty) for item in quotation.items])
+	values["net_total"] = flt(quotation.total)
+	return values
+
+
+def get_items_values(items):
+	"""
+	Total weight of (item_code, qty) pairs, and whether any of them is physical.
+
+	An item is physical when it is a stock item or has a weight. A cart of only
+	licences, services and hosting has nothing to deliver.
+	"""
 	total_weight = 0
-	for item in quotation.items:
-		weight = frappe.db.get_value("Item", item.item_code, "weight_per_unit") or 0
-		total_weight += flt(weight) * item.qty
+	is_physical = False
+	for item_code, qty in items:
+		weight, is_stock_item = frappe.db.get_value(
+			"Item", item_code, ["weight_per_unit", "is_stock_item"]
+		) or (0, 0)
+		total_weight += flt(weight) * flt(qty)
+		is_physical = is_physical or bool(is_stock_item) or flt(weight) > 0
 
-	return {"net_total": net_total, "total_weight": total_weight}
+	return {"total_weight": total_weight, "is_physical": is_physical}
 
 
 @frappe.whitelist(allow_guest=True)

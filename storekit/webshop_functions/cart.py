@@ -707,6 +707,10 @@ def update_cart_address(address_type, address_name, quotation=None):
 		quotation.shipping_address = address_display
 		quotation.customer_address = quotation.customer_address or address_name
 
+	if not quotation.get("items"):
+		# an empty cart has no totals; saving it fails in ERPNext's set_total_in_words
+		return None
+
 	# Called straight from the checkout page too, not only from place_order: saving the cart
 	# fetches Item details, which a Website User without Item read may not do (see
 	# _run_as_system_user()).

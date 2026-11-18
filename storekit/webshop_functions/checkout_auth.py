@@ -55,10 +55,14 @@ def merge_cookie_cart():
 		return
 	if frappe.get_cached_value("User", frappe.session.user, "user_type") != "Website User":
 		return
+	# The page and the cart drawer read the cart at the same time; only one of them merges,
+	# otherwise a shopper without a saved cart gets two new cart quotations.
+	lock = f"storekit:merge_cart:{frappe.session.user}"
+	if not frappe.cache.set(frappe.cache.make_key(lock), 1, nx=True, ex=15):
+		return
 	try:
 		_merge_guest_cart(cart_items)
 	except frappe.TimestampMismatchError:
-		# a parallel cart request on the same page load merged the same cookie cart first
 		frappe.db.rollback()
 	except Exception:
 		# never block a login because of the cart

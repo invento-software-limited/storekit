@@ -57,6 +57,9 @@ def merge_cookie_cart():
 		return
 	try:
 		_merge_guest_cart(cart_items)
+	except frappe.TimestampMismatchError:
+		# a parallel cart request on the same page load merged the same cookie cart first
+		frappe.db.rollback()
 	except Exception:
 		# never block a login because of the cart
 		frappe.log_error(title="Login: guest cart merge failed")

@@ -1252,7 +1252,12 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 
 		with _run_as_system_user():
 			quotation.run_method("calculate_taxes_and_totals")
-			quotation.save(ignore_permissions=True, ignore_version=True)
+			try:
+				quotation.save(ignore_permissions=True, ignore_version=True)
+			except frappe.TimestampMismatchError:
+				# the cart drawer and the page ask for totals at the same time; the other
+				# request has just saved the same cart, so use its result
+				quotation.reload()
 		frappe.db.commit()
 
 		total_price = flt(quotation.get("total"))

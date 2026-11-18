@@ -1,15 +1,101 @@
 import json
+from contextlib import contextmanager
 
 import frappe
 from erpnext.selling.doctype.quotation.quotation import _make_sales_order
 from frappe import _
 from frappe.contacts.doctype.address.address import get_address_display
-from frappe.contacts.doctype.contact.contact import get_contact_name
 from frappe.utils import cint, cstr, flt, get_fullname
 from frappe.utils.nestedset import get_root_of
 
 from storekit.api.shipping import calculate_cost
 from storekit.webshop_functions.checkout_auth import user_exists
+
+PRODUCT_IMAGE_PLACEHOLDER = "/assets/storekit/builder_assets/product-placeholder.svg"
+
+
+@contextmanager
+def _run_as_system_user():
+	"""
+	Temporarily elevate to Administrator for internal, system-driven quotation work
+	(pricing, tax/shipping calculation, submitting the cart) that must not depend on
+	which Item (or other business doctype) permissions happen to be configured for the
+	current session's role.
+
+	erpnext.stock.get_item_details.get_item_details() calls item.check_permission()
+	directly on a freshly-fetched Item document - a check quotation.flags.ignore_permissions
+	does not reach, since that flag only covers the Quotation's own permission checks, not
+	other doctypes fetched while building it. So whether checkout works at all ends up
+	depending on whatever Item role permissions happen to be configured on a given site: it
+	worked in dev (where some role grants Item read) and failed in production with
+	"PermissionError: No permission for Item" the moment a brand new Website User, with no
+	such role, tried to check out as a guest.
+
+	Deliberately does NOT use frappe.set_user() to switch back: that call also resets
+	frappe.local.session.sid and .data, and frappe.local.session is the very object this
+	request's real session gets persisted from at request end (frappe/sessions.py
+	Session.update()). Calling set_user() mid-request was clobbering the logged-in
+	customer's own session cache with their email in place of their real sid, so their
+	very next request (e.g. clicking through to /profile) couldn't resume the session and
+	silently landed back on Guest ("Not Permitted - Please log in"), despite checkout
+	having actually logged them in. Only the effective user is swapped here - the real
+	session's sid/data are left untouched.
+
+	Returns:
+	    None
+	"""
+	original_user = frappe.session.user
+
+	def _switch_to(user):
+		frappe.local.session.user = user
+		frappe.local.cache = {}
+		frappe.local.role_permissions = {}
+		frappe.local.user_perms = None
+
+	_switch_to("Administrator")
+	try:
+		yield
+	finally:
+		_switch_to(original_user)
+
+
+def _resolve_contact_for_email(email):
+	"""
+	Find the Contact for this email, preferring one that's actually linked to a party.
+
+	frappe.core.doctype.user.user.create_contact() auto-creates a bare Contact (no Customer
+	link) for every new User, but via frappe.enqueue(..., enqueue_after_commit=True) - a
+	background job, not something that has run by the time create_user() returns in the same
+	request. That job can still race storekit's own create_contact() below (e.g. the worker
+	picks up the job before our own insert has committed), leaving two Contact rows for the
+	same email: one linked to the new Customer, one not. get_contact_name() has no defined
+	order between them, so landing on the unlinked one made get_party() (used on every later
+	visit) believe this customer had no Customer/address history yet, creating a second, empty
+	Customer each time and hiding the billing address the signup itself had just saved. Scan
+	every Contact for this email and prefer one that already has a party link.
+
+	Args:
+	    email (str): The email address to look up.
+
+	Returns:
+	    Optional[frappe.model.document.Document]: The best-matching Contact, or None.
+	"""
+	if not email:
+		return None
+
+	linked, unlinked = None, None
+	for contact_name in frappe.get_all(
+		"Contact Email", filters={"email_id": email, "parenttype": "Contact"}, pluck="parent"
+	):
+		if not frappe.db.exists("Contact", contact_name):
+			continue
+		contact = frappe.get_doc("Contact", contact_name)
+		if contact.links:
+			linked = contact
+			break
+		unlinked = unlinked or contact
+
+	return linked or unlinked
 
 
 def _get_cart_quotation(party=None, contact=None):
@@ -61,11 +147,7 @@ def _get_cart_quotation(party=None, contact=None):
 		)
 
 		if not contact:
-			contact_name = get_contact_name(frappe.session.user)
-			if contact_name:
-				contact = frappe.get_doc("Contact", contact_name)
-			else:
-				contact = None
+			contact = _resolve_contact_for_email(frappe.session.user)
 
 		if contact:
 			contact_name = getattr(contact, "name", contact)
@@ -157,11 +239,20 @@ def update_cart(item_code, qty, additional_notes=None, cart_items=None):
 
 	quotation.flags.ignore_permissions = True
 	quotation.payment_schedule = []
-	if not empty_card:
-		quotation.save(ignore_version=True)
-	else:
-		quotation.delete()
-		quotation = None
+	with _run_as_system_user():
+		if not empty_card:
+			# Force a fresh price list lookup on every save. ERPNext's own item-detail
+			# merge (accounts_controller.set_missing_item_details) only re-fills rate/
+			# price_list_rate when the field is None - never when it's an explicit 0 -
+			# so a row that ever got saved at 0 (e.g. during the Item PermissionError
+			# this cart used to throw for new Website Users) stays stuck at £0.00
+			# forever, on every later qty change, with no way to self-heal.
+			for quotation_item in quotation.items:
+				quotation_item.price_list_rate = quotation_item.rate = quotation_item.amount = None
+			quotation.save(ignore_version=True)
+		else:
+			quotation.delete()
+			quotation = None
 
 	set_cart_count(quotation=quotation)
 
@@ -183,14 +274,12 @@ def get_party(user=None):
 	if not user:
 		user = frappe.session.user
 
-	contact_name = get_contact_name(user)
+	contact = _resolve_contact_for_email(user)
 	party = None
 
-	if contact_name:
-		contact = frappe.get_doc("Contact", contact_name)
-		if contact.links:
-			party_doctype = contact.links[0].link_doctype
-			party = contact.links[0].link_name
+	if contact and contact.links:
+		party_doctype = contact.links[0].link_doctype
+		party = contact.links[0].link_name
 
 	if party:
 		doc = frappe.get_doc(party_doctype, party)
@@ -315,7 +404,7 @@ def get_cart_items_for_logged_in_user(quotation, default_currency):
 			"item_name": item.item_name,
 			"item_code": item.item_code,
 			"qty": item.qty,
-			"image": item.image if item.image else "",
+			"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 			"rate": frappe.utils.fmt_money(item.rate, currency=default_currency),
 			"amount": frappe.utils.fmt_money(item.amount, currency=default_currency),
 		}
@@ -341,7 +430,7 @@ def get_cart_items_for_guest_user(default_currency):
 			"item_name": item_details.item_name,
 			"item_code": item_details.item_code,
 			"qty": item.get("qty"),
-			"image": item_details.image if item_details.image else "",
+			"image": item_details.image or PRODUCT_IMAGE_PLACEHOLDER,
 			"rate": frappe.utils.fmt_money(item.get("price", 0), currency=default_currency),
 			"amount": frappe.utils.fmt_money(
 				item.get("price", 0) * item.get("qty", 0), currency=default_currency
@@ -417,9 +506,15 @@ def update_cart_qty(item_code, qty, action, cart_items=None, quotation=None):
 				quotation.append("items", {"item_code": item_code, "qty": int(qty)})
 
 		if len(quotation.get("items")) == 0:
-			quotation.delete(ignore_permissions=True)
+			with _run_as_system_user():
+				quotation.delete(ignore_permissions=True)
 		else:
-			quotation.save(ignore_version=True, ignore_permissions=True)
+			# Same Item-permission issue as update_cart: a newly appended row (action
+			# "add" on an item not yet in the cart) drives validate()/set_missing_values
+			# through get_item_details(), which checks read permission on Item directly -
+			# a check a Website User with no such role fails outside Administrator.
+			with _run_as_system_user():
+				quotation.save(ignore_version=True, ignore_permissions=True)
 			frappe.db.commit()
 			cart_items = quotation.items
 
@@ -602,108 +697,116 @@ def place_order(doc=None, cart_items=None):
 			"customer_email_address": doc.email,
 		}
 
-		party = create_party(doc=customer)
+		party = create_party(doc=customer, user=doc.get("email_id"))
 		if party:
 			contact = create_contact(doc, party.name)
 			quotation = _get_cart_quotation(party=party, contact=contact)
+			quotation.flags.ignore_permissions = True
 
-			# Items must be on the quotation before any address update saves it:
-			# saving a brand-new item-less quotation fails in ERPNext (grand total is None).
-			cart_items = frappe.parse_json(cart_items) if cart_items else []
-			if cart_items:
-				add_items_to_quotation(quotation, cart_items)
+			# create_user() above already logged this guest in as the new Website User, who may
+			# have no role granting them read on Item - see _run_as_system_user() for why that
+			# breaks set_missing_values/calculate_taxes_and_totals below.
+			with _run_as_system_user():
+				# Items must be on the quotation before any address update saves it:
+				# saving a brand-new item-less quotation fails in ERPNext (grand total is None).
+				cart_items = frappe.parse_json(cart_items) if cart_items else []
+				if cart_items:
+					add_items_to_quotation(quotation, cart_items)
 
-			if address:
-				update_address_with_customer(address.name, party.name)
-				update_cart_address(
-					address_type=address.address_type, address_name=address.name, quotation=quotation
-				)
-
-			if not doc.get("deliver_same"):
-				required_fields = [
-					"deliver_address_line_1",
-					"deliver_town",
-					"deliver_country",
-					"deliver_postcode",
-					"phone",
-					"email_id",
-				]
-
-				# Ensure required fields are available
-				missing_fields = [field for field in required_fields if not doc.get(field)]
-				if missing_fields:
-					frappe.throw(
-						_("Missing required fields for delivery address: {0}").format(
-							", ".join(missing_fields)
-						)
-					)
-
-				deliver_address_json = {
-					"address_title": address_title,
-					"address_line1": doc.get("deliver_address_line_1", ""),
-					"address_line2": doc.get("deliver_address_line_2", ""),
-					"city": doc.get("deliver_town", ""),
-					"country": doc.get("deliver_country", ""),
-					"pincode": doc.get("deliver_postcode", ""),
-					"state": doc.get("deliver_state", ""),
-					"address_type": "Shipping",
-					"phone": doc.get("phone", ""),
-					"email_id": doc.get("email_id", ""),
-				}
-
-				deliver_address = add_new_address(frappe.as_json(deliver_address_json))
-
-				if deliver_address:
-					update_address_with_customer(deliver_address.name, party.name)
+				if address:
+					update_address_with_customer(address.name, party.name)
 					update_cart_address(
-						address_type=deliver_address.address_type,
-						address_name=deliver_address.name,
-						quotation=quotation,
+						address_type=address.address_type, address_name=address.name, quotation=quotation
 					)
-				else:
-					frappe.throw(_("Failed to create the delivery address."))
+
+				if not doc.get("deliver_same"):
+					required_fields = [
+						"deliver_address_line_1",
+						"deliver_town",
+						"deliver_country",
+						"deliver_postcode",
+						"phone",
+						"email_id",
+					]
+
+					# Ensure required fields are available
+					missing_fields = [field for field in required_fields if not doc.get(field)]
+					if missing_fields:
+						frappe.throw(
+							_("Missing required fields for delivery address: {0}").format(
+								", ".join(missing_fields)
+							)
+						)
+
+					deliver_address_json = {
+						"address_title": address_title,
+						"address_line1": doc.get("deliver_address_line_1", ""),
+						"address_line2": doc.get("deliver_address_line_2", ""),
+						"city": doc.get("deliver_town", ""),
+						"country": doc.get("deliver_country", ""),
+						"pincode": doc.get("deliver_postcode", ""),
+						"state": doc.get("deliver_state", ""),
+						"address_type": "Shipping",
+						"phone": doc.get("phone", ""),
+						"email_id": doc.get("email_id", ""),
+					}
+
+					deliver_address = add_new_address(frappe.as_json(deliver_address_json))
+
+					if deliver_address:
+						update_address_with_customer(deliver_address.name, party.name)
+						update_cart_address(
+							address_type=deliver_address.address_type,
+							address_name=deliver_address.name,
+							quotation=quotation,
+						)
+					else:
+						frappe.throw(_("Failed to create the delivery address."))
 
 	else:
 		quotation = _get_cart_quotation()
+		quotation.flags.ignore_permissions = True
 		party = get_party()
-		if doc.get("deliver_same"):
-			update_cart_address("Billing", doc.get("billing_address"), quotation)
-			update_cart_address("Shipping", doc.get("billing_address"), quotation)
-		else:
-			update_cart_address("Billing", doc.get("billing_address"), quotation)
-			update_cart_address("Shipping", doc.get("shipping_address"), quotation)
+		with _run_as_system_user():
+			if doc.get("deliver_same"):
+				update_cart_address("Billing", doc.get("billing_address"), quotation)
+				update_cart_address("Shipping", doc.get("billing_address"), quotation)
+			else:
+				update_cart_address("Billing", doc.get("billing_address"), quotation)
+				update_cart_address("Shipping", doc.get("shipping_address"), quotation)
 
 	if not quotation:
 		frappe.throw(_("Quotation could not be created"))
 
-	set_price_list_and_rate(quotation)
-	# Use custom calculate_taxes_and_totals function to apply both taxes and shipping
-	calculate_taxes_and_totals(quotation=quotation)
-	# _apply_shipping_rule(party, quotation)
+	with _run_as_system_user():
+		set_price_list_and_rate(quotation)
+		# Use custom calculate_taxes_and_totals function to apply both taxes and shipping
+		calculate_taxes_and_totals(quotation=quotation)
+		# _apply_shipping_rule(party, quotation)
 
-	quotation.flags.ignore_permissions = True
-	quotation.submit()
+		quotation.flags.ignore_permissions = True
+		quotation.submit()
 
-	# Card payment: SO is created AFTER payment is confirmed by the gateway.
-	# Return now so the frontend can redirect to the payment page.
-	if doc.get("mode_of_payment") == "Pay with Card":
-		return {
-			"quotation": quotation.name,
-			"pending_card_payment": True,
-		}
+		# Card payment: SO is created AFTER payment is confirmed by the gateway.
+		# Return now so the frontend can redirect to the payment page.
+		if doc.get("mode_of_payment") == "Pay with Card":
+			return {
+				"quotation": quotation.name,
+				"pending_card_payment": True,
+			}
 
-	if quotation.quotation_to == "Lead" and quotation.party_name:
-		frappe.defaults.set_user_default("company", quotation.company)
+		if quotation.quotation_to == "Lead" and quotation.party_name:
+			frappe.defaults.set_user_default("company", quotation.company)
 
-	if not (quotation.shipping_address_name or quotation.customer_address):
-		frappe.throw(_("Set Shipping Address or Billing Address"))
+		if not (quotation.shipping_address_name or quotation.customer_address):
+			frappe.throw(_("Set Shipping Address or Billing Address"))
 
-	sales_order = frappe.get_doc(_make_sales_order(quotation.name, ignore_permissions=True))
-	sales_order.payment_schedule = []
+		sales_order = frappe.get_doc(_make_sales_order(quotation.name, ignore_permissions=True))
+		sales_order.payment_schedule = []
 
-	sales_order.flags.ignore_permissions = True
-	sales_order.insert()
-	sales_order.submit()
+		sales_order.flags.ignore_permissions = True
+		sales_order.insert()
+		sales_order.submit()
 
 	if hasattr(frappe.local, "cookie_manager"):
 		frappe.local.cookie_manager.delete_cookie("cart_count")
@@ -716,7 +819,7 @@ def place_order(doc=None, cart_items=None):
 			{
 				"item_code": item.item_code,
 				"item_name": item.item_name,
-				"image": item.image or "",
+				"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 				"qty": item.qty,
 				"amount": frappe.utils.fmt_money(item.amount, currency=currency),
 			}
@@ -725,18 +828,26 @@ def place_order(doc=None, cart_items=None):
 	}
 
 
-def create_party(doc):
+def create_party(doc, user=None):
 	"""
 	Create and save a new Customer party based on the provided details.
 
 	Args:
 	    doc (dict): The customer details to create the party.
+	    user (Optional[str]): The portal user (email) to link to this Customer, so
+	        get_party() can find it by Portal User lookup on later visits and the
+	        storefront's order-history page (which filters Customers by Portal User,
+	        not by Contact) can find it right away. Without this, a customer created
+	        during guest checkout signup has no Portal User row at all, and /profile
+	        shows no orders even immediately after the signup's own first order.
 
 	Returns:
 	    frappe.model.document.Document: The created Customer document.
 	"""
 	doc.update({"doctype": "Customer"})
 	party = frappe.get_doc(doc)
+	if user:
+		party.append("portal_users", {"user": user})
 	party.save(ignore_permissions=True)
 
 	return party
@@ -760,15 +871,33 @@ def update_address_with_customer(address_name, customer_name):
 
 def create_contact(doc, customer_name):
 	"""
-	Create a Contact and link it to the specified Customer.
+	Link the Customer to the Contact for this email, creating one only if none exists.
+
+	See _resolve_contact_for_email() for why more than one Contact can exist for the same
+	email (a race with frappe's own background User->Contact job), and why picking the wrong
+	one breaks every later visit for this customer. Reuse the best-matching Contact instead of
+	blindly creating a second one.
 
 	Args:
 	    doc (dict): The contact details (full name, email, and phone).
 	    customer_name (str): The name of the customer to link the contact to.
 
 	Returns:
-	    frappe.model.document.Document: The created Contact document.
+	    frappe.model.document.Document: The (possibly pre-existing) Contact document.
 	"""
+	email = doc.get("email_id")
+	contact_doc = _resolve_contact_for_email(email)
+
+	if contact_doc:
+		if not any(
+			link.link_doctype == "Customer" and link.link_name == customer_name
+			for link in contact_doc.links
+		):
+			contact_doc.append("links", {"link_doctype": "Customer", "link_name": customer_name})
+			contact_doc.flags.ignore_mandatory = True
+			contact_doc.save(ignore_permissions=True)
+		return contact_doc
+
 	contact_doc = frappe.get_doc(
 		{
 			"doctype": "Contact",
@@ -776,7 +905,7 @@ def create_contact(doc, customer_name):
 			"last_name": doc.get("last_name"),
 			"company_name": doc.get("company_name"),
 			"is_primary_contact": 1,
-			"email_ids": [{"email_id": doc.get("email_id"), "is_primary": 1}],
+			"email_ids": [{"email_id": email, "is_primary": 1}],
 			"phone_nos": [{"phone": doc.get("phone"), "is_primary_phone": 1, "is_primary_mobile_no": 1}],
 			"links": [{"link_doctype": "Customer", "link_name": customer_name}],
 		}
@@ -999,14 +1128,10 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 	total_excluded_tax = total_included_tax = 0
 	order_summary = []
 	default_currency = frappe.db.get_single_value("Global Defaults", "default_currency")
-	tax_template_name = None
 	if quotation:
-		if quotation.tax_category:
-			tax_template_name = quotation.taxes_and_charges or frappe.db.get_value(
-				"Sales Taxes and Charges Template", {"is_default": 1}
-			)
-		else:
-			tax_template_name = None
+		tax_template_name = quotation.taxes_and_charges or frappe.db.get_value(
+			"Sales Taxes and Charges Template", {"is_default": 1}
+		)
 	else:
 		tax_template_name = frappe.db.get_value("Sales Taxes and Charges Template", {"is_default": 1})
 
@@ -1102,8 +1227,9 @@ def calculate_taxes_and_totals(quotation=None, cart_items=None):
 		# Apply custom shipping rule logic (appends two more rows if rule exists)
 		_apply_shipping_rule(quotation=quotation)
 
-		quotation.run_method("calculate_taxes_and_totals")
-		quotation.save(ignore_permissions=True, ignore_version=True)
+		with _run_as_system_user():
+			quotation.run_method("calculate_taxes_and_totals")
+			quotation.save(ignore_permissions=True, ignore_version=True)
 		frappe.db.commit()
 
 		total_price = flt(quotation.get("total"))

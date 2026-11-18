@@ -1,5 +1,7 @@
 import frappe
 
+from storekit.webshop_functions.cart import PRODUCT_IMAGE_PLACEHOLDER
+
 
 @frappe.whitelist(allow_guest=True)
 def submit_inquiry(name, email, company, enquiry_type, country, message):
@@ -114,7 +116,7 @@ def get_products(
 			{
 				"item_code": item.item_code,
 				"item_name": item.item_name,
-				"image": item.image or "https://placehold.co/400x300",
+				"image": item.image or PRODUCT_IMAGE_PLACEHOLDER,
 				"description": item.description,
 				"price": price,
 				"price_formatted": f"£{price:,.2f}",
